@@ -152,12 +152,12 @@ customize the computation of window boundaries.
    class Indexer(abc.ABC):
        @abc.abstractmethod
        @classmethod
-       def get_window_bounds(cls, values, index, offset) -> BeginEnd:
+       def get_window_bounds(cls, index, offset) -> BeginEnd:
            ...
 
    class MyBusinessDayIndexer(Indexer):
        @classmethod
-       def get_window_bounds(cls, values, index, offset) -> BeginEnd:
+       def get_window_bounds(cls, index, offset) -> BeginEnd:
            ...
 
 Example Aggregation Loop Implemention
@@ -175,8 +175,7 @@ using the interfaces proposed above.
        agg_class: Type[Agg],
    ) -> ndarray:
        result = np.empty(...)
-       indexer = indexer_class(values, index)
-       begin, end = indexer.get_window_bounds(offset)
+       begin, end = indexer_class.get_window_bounds(index, offset)
        aggregator = agg_class.make_aggregator(values)
        previous_start = previous_end = -1
        for i, (start, stop) in enumerate(zip(begin, end)):

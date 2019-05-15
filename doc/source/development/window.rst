@@ -139,8 +139,6 @@ An example implementation of a :class:`Sum` kernel would look similar to
 
 Customization of Window Spans
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Q: What rows should be aggregated?
-
 We propose a generic mechanism that allows power users and library authors to
 customize the computation of window boundaries.
 

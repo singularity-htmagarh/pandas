@@ -55,11 +55,8 @@ For example:
    Output = TypeVar("Output")
 
    class AggregationAlgorithm(abc.ABC):
-       def __init__(
-           self, values: ndarray, agg: Union[Callable[...], Kernel]
-       ) -> None:
+       def __init__(self, values: ndarray) -> None:
            self.values = values
-           self.agg = agg
 
        @abc.abstractmethod
        def query(
@@ -68,18 +65,30 @@ For example:
            ...
 
    class SegmentTreeAggregator(AggregationAlgorithm):
+       def __init__(self, values: ndarray, agg: AggKernel) -> None:
+           super().__init__(values)
+           self.agg = agg
+
        def query(
            self, start: int, stop: int, previous_start: int, previous_end: int
        ) -> Output:
            """Compute a value by walking nodes of a segment tree."""
 
    class SubtractableAggregator(AggregationAlgorithm):
+       def __init__(self, values: ndarray, agg: AggKernel) -> None:
+           super().__init__(values)
+           self.agg = agg
+
        def query(
            self, start: int, stop: int, previous_start: int, previous_end: int
        ) -> Output:
            """Compute a value based on changes in bounds."""
 
    class ApplyAggregator(AggregationAlgorithm):
+       def __init__(self, values: ndarray, agg: Callable[..., Output]) -> None:
+           super().__init__(values)
+           self.agg = agg
+
        def query(
            self, start: int, stop: int, previous_start: int, previous_end: int
        ) -> Output:

@@ -4,11 +4,16 @@ Generalized Window Operations
 Rationale
 ---------
 The current window implementation in :file:`window.pyx` is difficult to
-customize and couples the creation of window bounds, loop over the values to
-aggregate, the logic for updating an aggregation. The aggregation algorithms
-are also duplicated in :file:`groupby.pyx`, but unifying grouping aggregation
-algorithms and windowing aggregation algorithms is out of scope for this
-proposal
+customize and couples the creation of window bounds, looping over the values to
+aggregate and the logic for updating an aggregation. The aggregation algorithms
+are also duplicated in :file:`groupby.pyx`.
+
+This is a design specification for a generic implementation of windowed
+operations. It is meant to replace existing windowing implementations, as well
+as allow users to customize windowing behavior.
+
+Unifying both grouping aggregation algorithms *and* windowing aggregation
+algorithms is out of scope for this proposal.
 
 Requirements
 ------------
@@ -33,10 +38,21 @@ requirements.
 Ideally, the implementation is able to use ``numba`` to implement the
 performance sensitive parts of the proposal.
 
+Numba is ideal for multiple reasons:
+
+#. Easier debugging than Cython
+#. Support for types needed by pandas
+#. Implementation of UDAs can be done in pure Python
+
 Aggregation
 ~~~~~~~~~~~
-We propose to split aggregations into two parts: the algorithm used to compute
-the value of an aggregation for a given row, and a class used for aggregation.
+We propose to split aggregations into two parts.
+
+The first part is a data structure capable of providing the current value of
+the window function, given the rows that have been seen.
+
+The second part is an algorithm for providing the rows needed to the data
+structure from the first part.
 
 The aggregation algorithm is an interface that when given a start and stop
 point representing indices into a :attr:`values` one-dimensional array, knows

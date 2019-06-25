@@ -9,6 +9,7 @@ from numpy.random import randn
 import pytest
 
 from pandas.errors import UnsupportedFunctionCall
+import pandas._lib._window as libwindow_refactor
 import pandas.util._test_decorators as td
 
 import pandas as pd
@@ -46,6 +47,35 @@ def win_types(request):
                         'exponential'])
 def win_types_special(request):
     return request.param
+
+
+@pytest.fixture(params=['right', 'left', 'both', 'neither'])
+def closed(request):
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def center(request):
+    return request.param
+
+
+@pytest.fixture(params=[None, 1])
+def min_periods(request):
+    return request.param
+
+
+@pytest.fixure
+def dummy_custom_indexer():
+
+    # TODO: (MATT) this assumes we are going with option 1 described in
+    #  _window.py
+    class DummyIndexer(libwindow_refactor.BaseIndexer):
+        pass
+
+    idx = pd.date_range('2019', freq='D', n=3)
+    offset = pd.offset.BusinessDay(1)
+    keys=['A']
+    return DummyIndexer(index=idx, offset=offset, keys=keys)
 
 
 class Base:
@@ -4137,3 +4167,21 @@ class TestRollingTS:
 
         expected2 = ss.rolling(3, min_periods=1).cov()
         tm.assert_series_equal(result, expected2)
+
+
+class TestCustomIndexer:
+
+    def test_custom_indexer_smoketest(self,
+                                      dummy_custom_indexer,
+                                      win_types,
+                                      closed,
+                                      min_periods,
+                                      center):
+        # Test passing a BaseIndexer subclass does not raise validation errors
+        s = Series(range(10))
+        s.rolling(dummy_custom_indexer,
+                  win_type=win_types,
+                  center=closed,
+                  min_periods=min_periods,
+                  closed=center)
+

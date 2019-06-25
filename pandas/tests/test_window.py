@@ -4171,7 +4171,7 @@ class TestRollingTS:
 
 class TestCustomIndexer:
 
-    def test_custom_indexer_smoketest(self,
+    def test_custom_indexer_validates(self,
                                       dummy_custom_indexer,
                                       win_types,
                                       closed,

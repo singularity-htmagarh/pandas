@@ -9,12 +9,13 @@ from numpy.random import randn
 import pytest
 
 from pandas.errors import UnsupportedFunctionCall
-import pandas._lib._window as libwindow_refactor
+import pandas._libs._window as libwindow_refactor
 import pandas.util._test_decorators as td
 
 import pandas as pd
 from pandas import (
-    DataFrame, Index, Series, Timestamp, bdate_range, concat, isna, notna)
+    DataFrame, Index, Series, Timestamp, bdate_range, concat, date_range,
+    isna, notna)
 from pandas.core.base import DataError, SpecificationError
 from pandas.core.sorting import safe_sort
 import pandas.core.window as rwindow
@@ -70,17 +71,20 @@ def min_periods(request):
     return request.param
 
 
-@pytest.fixure
+@pytest.fixture
 def dummy_custom_indexer():
 
-    # TODO: (MATT) this assumes we are going with option 1 described in
-    #  _window.py
     class DummyIndexer(libwindow_refactor.BaseIndexer):
-        pass
 
-    idx = pd.date_range('2019', freq='D', n=3)
-    offset = pd.offset.BusinessDay(1)
-    keys=['A']
+        def __init__(self, index, offset, keys):
+            super().__init__(index, offset, keys)
+
+        def get_window_bounds(self, **kwargs):
+            pass
+
+    idx = date_range('2019', freq='D', periods=3)
+    offset = offsets.BusinessDay(1)
+    keys = ['A']
     return DummyIndexer(index=idx, offset=offset, keys=keys)
 
 
@@ -4198,7 +4202,6 @@ class TestCustomIndexer:
         s = Series(range(10))
         s.rolling(dummy_custom_indexer,
                   win_type=win_types,
-                  center=closed,
+                  center=center,
                   min_periods=min_periods,
-                  closed=center)
-
+                  closed=closed)

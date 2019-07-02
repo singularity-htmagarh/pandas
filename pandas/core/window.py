@@ -487,10 +487,6 @@ class Window(_Window):
         for fixed windows.
 
         .. versionadded:: 0.20.0
-    kwargs :
-        Arguments that will be passed to BaseIndexer subclass.
-        # TODO: (MATT) This docstring not needed if opetion 1 is chosen
-        #  described in _window.py
 
     Returns
     -------
@@ -673,12 +669,7 @@ class Window(_Window):
             # GH #15662. `False` makes symmetric window, rather than periodic.
             return sig.get_window(win_type, window, False).astype(float)
         elif isinstance(window, libwindow_refactor.BaseIndexer):
-            # TODO: (MATT) this assumes option #1 is chosen described in
-            #  _window.py
-            return window.get_window_span(index=window.index,
-                                          offset=window.offset,
-                                          keys=window.keys,
-                                          win_type=self.win_type,
+            return window.get_window_span(win_type=self.win_type,
                                           min_periods=self.min_periods,
                                           center=self.center,
                                           closed=self.closed)
@@ -2627,8 +2618,8 @@ def _get_center_of_mass(comass, span, halflife, alpha):
 
 
 def _offset(window, center):
-    # TODO: (MATT) If the window is a BaseIndexer subclass, we need to pass in the
-    #  materialized window
+    # TODO: (MATT) If the window is a BaseIndexer subclass,
+    #  we need to pass in the materialized window
     if not is_integer(window):
         window = len(window)
     offset = (window - 1) / 2. if center else 0

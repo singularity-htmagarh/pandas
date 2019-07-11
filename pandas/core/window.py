@@ -10,8 +10,8 @@ import warnings
 
 import numpy as np
 
+import pandas._libs.custom_window as libwindow_custom
 import pandas._libs.window as libwindow
-import pandas._libs._window as libwindow_refactor
 from pandas.compat._optional import import_optional_dependency
 from pandas.compat.numpy import function as nv
 from pandas.util._decorators import Appender, Substitution, cache_readonly
@@ -650,8 +650,7 @@ class Window(_Window):
         super().validate()
 
         window = self.window
-        if isinstance(window, (list, tuple, np.ndarray,
-                               libwindow_refactor.BaseIndexer)):
+        if isinstance(window, (list, tuple, np.ndarray, libwindow_custom.BaseIndexer)):
             pass
         elif is_integer(window):
             if window <= 0:
@@ -713,11 +712,13 @@ class Window(_Window):
             win_type = _validate_win_type(self.win_type, kwargs)
             # GH #15662. `False` makes symmetric window, rather than periodic.
             return sig.get_window(win_type, window, False).astype(float)
-        elif isinstance(window, libwindow_refactor.BaseIndexer):
-            return window.get_window_span(win_type=self.win_type,
-                                          min_periods=self.min_periods,
-                                          center=self.center,
-                                          closed=self.closed)
+        elif isinstance(window, libwindow_custom.BaseIndexer):
+            return window.get_window_span(
+                win_type=self.win_type,
+                min_periods=self.min_periods,
+                center=self.center,
+                closed=self.closed,
+            )
 
     def _apply_window(self, mean=True, **kwargs):
         """
@@ -1738,7 +1739,7 @@ class Rolling(_Rolling_and_Expanding):
             # min_periods must be an integer
             if self.min_periods is None:
                 self.min_periods = 1
-        elif isinstance(self.window, libwindow_refactor.BaseIndexer):
+        elif isinstance(self.window, libwindow_custom.BaseIndexer):
             pass
         elif not is_integer(self.window):
             raise ValueError("window must be an integer")

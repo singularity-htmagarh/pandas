@@ -1,7 +1,9 @@
 import abc
-from typing import Dict, Sequence, Tuple
+from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
+
+from pandas.offset import DateOffset
 
 BeginEnd = Tuple[np.ndarray, np.ndarray]
 
@@ -15,17 +17,22 @@ BeginEnd = Tuple[np.ndarray, np.ndarray]
 
 
 class BaseIndexer(abc.ABC):
-
     def __init__(self, index, offset, keys):
         # TODO: The alternative is for the `rolling` API to accept
         #  index, offset, and keys as keyword arguments
         self.index = index
-        self.offset = offset
+        self.offset = offset  # type: Union[str, DateOffset]
         self.keys = keys  # type: Sequence[np.ndarray]
 
     @classmethod
     @abc.abstractmethod
-    def get_window_bounds(cls, **kwargs: Dict) -> BeginEnd:
+    def get_window_bounds(
+        cls,
+        win_type: Optional[str] = None,
+        min_periods: Optional[int] = None,
+        center: Optional[bool] = None,
+        closed: Optional[str] = None,
+    ) -> BeginEnd:
         """
         Compute the bounds of a window.
 
@@ -34,9 +41,17 @@ class BaseIndexer(abc.ABC):
 
         Parameters
         ----------
-        kwargs
-            A dictionary of keyword arguments obtained from the top level
-            rolling API e.g. min_periods, win_type
+        win_type : str, default None
+            win_type passed from the top level rolling API
+
+        min_periods : int, default None
+            min_periods passed from the top level rolling API
+
+        center : bool, default None
+            center passed from the top level rolling API
+
+        closed : str, default None
+            closed passed from the top level rolling API
 
         Returns
         -------
@@ -45,4 +60,3 @@ class BaseIndexer(abc.ABC):
             window
 
         """
-        return NotImplemented

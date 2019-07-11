@@ -9,7 +9,6 @@ from numpy.random import randn
 import pytest
 
 from pandas.errors import UnsupportedFunctionCall
-import pandas._libs._window as libwindow_refactor
 import pandas.util._test_decorators as td
 
 import pandas as pd
@@ -21,7 +20,6 @@ import pandas.util.testing as tm
 import pandas.tseries.offsets as offsets
 
 N, K = 100, 10
-
 
 
 class Base:
@@ -3640,17 +3638,15 @@ class TestGrouperGrouping:
 
 
 class TestCustomIndexer:
-
-    def test_custom_indexer_validates(self,
-                                      dummy_custom_indexer,
-                                      win_types,
-                                      closed,
-                                      min_periods,
-                                      center):
+    def test_custom_indexer_validates(
+        self, dummy_custom_indexer, win_types, closed, min_periods, center
+    ):
         # Test passing a BaseIndexer subclass does not raise validation errors
         s = Series(range(10))
-        s.rolling(dummy_custom_indexer,
-                  win_type=win_types,
-                  center=center,
-                  min_periods=min_periods,
-                  closed=closed)
+        s.rolling(
+            dummy_custom_indexer,
+            win_type=win_types,
+            center=center,
+            min_periods=min_periods,
+            closed=closed,
+        )

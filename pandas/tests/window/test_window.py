@@ -3635,18 +3635,3 @@ class TestGrouperGrouping:
         result = r.apply(lambda x: x.sum(), raw=raw)
         expected = g.apply(lambda x: x.expanding().apply(lambda y: y.sum(), raw=raw))
         tm.assert_frame_equal(result, expected)
-
-
-class TestCustomIndexer:
-    def test_custom_indexer_validates(
-        self, dummy_custom_indexer, win_types, closed, min_periods, center
-    ):
-        # Test passing a BaseIndexer subclass does not raise validation errors
-        s = Series(range(10))
-        s.rolling(
-            dummy_custom_indexer,
-            win_type=win_types,
-            center=center,
-            min_periods=min_periods,
-            closed=closed,
-        )

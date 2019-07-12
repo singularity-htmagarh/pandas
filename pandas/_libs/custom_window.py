@@ -3,7 +3,7 @@ from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from pandas.offset import DateOffset
+from pandas.tseries.offsets import DateOffset
 
 BeginEnd = Tuple[np.ndarray, np.ndarray]
 

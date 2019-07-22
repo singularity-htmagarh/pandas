@@ -10,6 +10,7 @@ import warnings
 
 import numpy as np
 
+import pandas._libs.custom_window as libwindow_custom
 import pandas._libs.window as libwindow
 from pandas.compat._optional import import_optional_dependency
 from pandas.compat.numpy import function as nv
@@ -479,7 +480,7 @@ class Window(_Window):
 
     Parameters
     ----------
-    window : int, or offset
+    window : int, offset, or BaseIndexer subclass
         Size of the moving window. This is the number of observations used for
         calculating the statistic. Each window will be a fixed size.
 
@@ -487,6 +488,11 @@ class Window(_Window):
         window will be a variable sized based on the observations included in
         the time-period. This is only valid for datetimelike indexes. This is
         new in 0.19.0
+
+        If a BaseIndexer subclass is passed, calculates the window boundaries
+        based on the defined ``get_window_bounds`` method. Additional rolling
+        keyword arguments, namely `min_periods`, `center`, `win_type`, and
+        `closed` will be passed to `get_window_bounds`.
     min_periods : int, default None
         Minimum number of observations in window required to have a value
         (otherwise result is NA). For a window that is specified by an offset,
@@ -629,7 +635,7 @@ class Window(_Window):
         super().validate()
 
         window = self.window
-        if isinstance(window, (list, tuple, np.ndarray)):
+        if isinstance(window, (list, tuple, np.ndarray, libwindow_custom.BaseIndexer)):
             pass
         elif is_integer(window):
             if window <= 0:
@@ -691,6 +697,13 @@ class Window(_Window):
             win_type = _validate_win_type(self.win_type, kwargs)
             # GH #15662. `False` makes symmetric window, rather than periodic.
             return sig.get_window(win_type, window, False).astype(float)
+        elif isinstance(window, libwindow_custom.BaseIndexer):
+            return window.get_window_span(
+                win_type=self.win_type,
+                min_periods=self.min_periods,
+                center=self.center,
+                closed=self.closed,
+            )
 
     def _apply_window(self, mean=True, **kwargs):
         """
@@ -1729,7 +1742,8 @@ class Rolling(_Rolling_and_Expanding):
             # min_periods must be an integer
             if self.min_periods is None:
                 self.min_periods = 1
-
+        elif isinstance(self.window, libwindow_custom.BaseIndexer):
+            pass
         elif not is_integer(self.window):
             raise ValueError("window must be an integer")
         elif self.window < 0:
@@ -2776,6 +2790,8 @@ def _get_center_of_mass(comass, span, halflife, alpha):
 
 
 def _offset(window, center):
+    # TODO: (MATT) If the window is a BaseIndexer subclass,
+    #  we need to pass in the materialized window
     if not is_integer(window):
         window = len(window)
     offset = (window - 1) / 2.0 if center else 0

@@ -98,17 +98,6 @@ class BaseAggregator(abc.ABC):
         """
 
 
-class SubtractableAggregator(BaseAggregator):
-    def __init__(self, values: np.ndarray, agg: AggKernel) -> None:
-        super().__init__(values)
-        self.agg = agg
-
-    def query(
-        self, start: int, stop: int, previous_start: int, previous_end: int
-    ) -> Scalar:
-        """Compute a value based on changes in bounds."""
-
-
 class AggKernel(abc.ABC):
     def __init__(self):
         self.count = 0
@@ -124,8 +113,28 @@ class UnaryAggKernel(AggKernel):
         """Update the state of the aggregation with `value`."""
 
 
+class SubtractableAggregator(BaseAggregator):
+    def __init__(self, values: np.ndarray, agg: AggKernel) -> None:
+        super().__init__(values)
+        self.agg = agg
+
+    def query(
+        self, start: int, stop: int, previous_start: int, previous_end: int
+    ) -> Scalar:
+        """Compute a value based on changes in bounds."""
+        if previous_start == -1 and previous_end == -1:
+            for value in self.values[start:stop]:
+                self.agg.step(value)
+        else:
+            for value in self.values[previous_start:start]:
+                self.agg.invert(value)
+            for value in self.values[previous_end:stop]:
+                self.agg.step(value)
+        return self.agg.finalize()
+
+
 class Sum(UnaryAggKernel):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.total = 0
 
@@ -140,7 +149,7 @@ class Sum(UnaryAggKernel):
             self.count -= 1
             self.total -= value
 
-    def finalize(self):
+    def finalize(self) -> Optional[int]:
         if not self.count:
             return None
         return self.total
@@ -154,14 +163,35 @@ class Sum(UnaryAggKernel):
     def make_aggregator(
         cls, values: np.ndarray
     ) -> BaseAggregator:
-        SubtractableAggregator.check_agg(cls)
         aggregator = SubtractableAggregator(values, cls())
         return aggregator
 
 
 class Mean(Sum):
 
-    def finalize(self):
+    def finalize(self) -> Optional[float]:
         if not self.count:
             return None
         return self.total / self.count
+
+
+def rolling_aggregation(
+    values: np.ndarray,
+    index: np.ndarray,
+    offset: Union[str, DateOffset],
+    keys: Sequence[np.ndarray],
+    indexer_class,
+    kernel_class,
+) -> np.ndarray:
+    """Perform a generic rolling aggregation"""
+    begin, end = indexer_class.get_window_bounds(index, offset, keys)
+    aggregator = kernel_class.make_aggregator(values)
+    previous_start = previous_end = -1
+    result = np.empty(len(begin))
+    for i, (start, stop) in enumerate(zip(begin, end)):
+        result[i] = aggregator.query(
+            start, stop, previous_start, previous_end
+        )
+        previous_start = start
+        previous_end = end
+    return result

@@ -7,12 +7,6 @@ from pandas.tseries.offsets import DateOffset
 
 BeginEnd = Tuple[np.ndarray, np.ndarray]
 
-# TODO: Currently, when win_type is specified, it calls a special routine,
-#  `roll_window`, while None win_type ops dispatch to specific methods.
-#  Consider consolidating?
-
-# TODO: Handle "minp" = "min_periods" validation
-
 
 class BaseIndexer(abc.ABC):
     """Base class for window bounds calculations"""
@@ -40,8 +34,8 @@ class BaseIndexer(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def get_window_bounds(cls,
-                          values: Optional[np.ndarray] = None,  # "self.N" = len(values) = len(index)
-                          window_size: int = 0,  # "self.win"
+                          values: Optional[np.ndarray] = None,
+                          window_size: int = 0,
                           min_periods: Optional[int] = None,
                           center: Optional[bool] = None,
                           closed: Optional[str] = None,
@@ -101,6 +95,26 @@ class FixedWindowIndexer(BaseIndexer):
 
 class VariableWindowIndexer(BaseIndexer):
 
+    def _calculate_closed_bounds(self, closed: Optional[str]) -> Tuple[bool, bool]:
+        left_closed = False
+        right_closed = False
+
+        # if windows is variable, default is 'right', otherwise default is 'both'
+        if closed is None:
+            closed = 'right' if self.index is not None else 'both'
+
+        if closed == 'both':
+            left_closed = True
+            right_closed = True
+
+        elif closed == 'right':
+            right_closed = True
+
+        elif closed == 'left':
+            left_closed = True
+
+        return left_closed, right_closed
+
     def get_window_bounds(self,
                           values: Optional[np.ndarray] = None,
                           window_size: int = 0,
@@ -109,19 +123,7 @@ class VariableWindowIndexer(BaseIndexer):
                           closed: Optional[str] = None,
                           win_type: Optional[str] = None):
 
-        # TODO: Move this close validation upstream (it always applied to all indexers)
-        left_closed = False
-        right_closed = False
-
-        # if windows is variable, default is 'right', otherwise default is 'both'
-        if closed is None:
-            closed = 'right' if self.index is not None else 'both'
-
-        if closed in ['right', 'both']:
-            right_closed = True
-
-        if closed in ['left', 'both']:
-            left_closed = True
+        left_closed, right_closed = self._calculate_closed_bounds(closed)
 
         num_values = len(values) if values is not None else 0
 
@@ -170,77 +172,3 @@ class VariableWindowIndexer(BaseIndexer):
                 end[i] -= 1
 
         return start, end
-
-
-def _check_minp(win: int, minp: Optional[int], N: int, floor: Optional[int] = None):
-    """
-    Parameters
-    ----------
-    win: int
-    minp: int or None
-    N: len of window
-    floor: int, optional
-        default 1
-
-    Returns
-    -------
-    minimum period
-    """
-
-    if minp is None:
-        minp = 1
-    if not isinstance(minp, int):
-        raise ValueError("min_periods must be an integer")
-    if minp > win:
-        raise ValueError("min_periods (%d) must be <= "
-                         "window (%d)" % (minp, win))
-    elif minp > N:
-        minp = N + 1
-    elif minp < 0:
-        raise ValueError('min_periods must be >= 0')
-    if floor is None:
-        floor = 1
-
-    return max(minp, floor)
-
-
-class MockFixedWindowIndexer:
-    """
-
-    We are just checking parameters of the indexer,
-    and returning a consistent API with fixed/variable
-    indexers.
-
-    Parameters
-    ----------
-    values: ndarray
-        values data array
-    win: int64_t
-        window size
-    minp: int64_t
-        min number of obs in a window to consider non-NaN
-    index: object
-        index of the values
-    floor: optional
-        unit for flooring
-    left_closed: bint
-        left endpoint closedness
-    right_closed: bint
-        right endpoint closedness
-
-    """
-    def __init__(self,
-                 values: np.ndarray,
-                 win: int,
-                 minp: int,
-                 left_closed: bool,
-                 right_closed: bool,
-                 index=None,
-                 floor=None):
-
-        assert index is None
-        self.is_variable = 0
-        self.N = len(values)
-        self.start = np.empty(0, dtype='int64')
-        self.end = np.empty(0, dtype='int64')
-        self.win = win

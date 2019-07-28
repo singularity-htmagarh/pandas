@@ -56,10 +56,10 @@ def min_periods(request):
 @pytest.fixture
 def dummy_custom_indexer():
     class DummyIndexer(BaseIndexer):
-        def __init__(self, *args, **kwargs):
-            super().__init__()
+        def __init__(self, index, offset, keys):
+            super().__init__(index, offset, keys)
 
-        def get_window_bounds(self):
+        def get_window_bounds(self, **kwargs):
             pass
 
     idx = date_range("2019", freq="D", periods=3)

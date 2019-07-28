@@ -77,7 +77,7 @@ class FixedWindowIndexer(BaseIndexer):
 
     def get_window_bounds(self,
                           values: Optional[np.ndarray] = None,
-                          window_size: int = 0,  # "self.win"
+                          window_size: int = 0,
                           min_periods: Optional[int] = None,
                           center: Optional[bool] = None,
                           closed: Optional[str] = None,

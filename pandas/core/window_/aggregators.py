@@ -7,6 +7,7 @@ from pandas._typing import Scalar
 
 
 class BaseAggregator(abc.ABC):
+    """Interface to return the current value of the rolling aggregation at the current step"""
     def __init__(self, values: np.ndarray) -> None:
         self.values = values
 
@@ -40,6 +41,22 @@ class BaseAggregator(abc.ABC):
         """
 
 
+class AggKernel(abc.ABC):
+    """Interface that computes the aggregation value"""
+    def __init__(self):
+        self.count = 0
+
+    @abc.abstractmethod
+    def finalize(self):
+        """Return the final value of the aggregation."""
+
+
+class UnaryAggKernel(AggKernel):
+    @abc.abstractmethod
+    def step(self, value) -> None:
+        """Update the state of the aggregation with `value`."""
+
+
 class SubtractableAggregator(BaseAggregator):
     def __init__(self, values: np.ndarray, agg: AggKernel) -> None:
         super().__init__(values)
@@ -58,21 +75,6 @@ class SubtractableAggregator(BaseAggregator):
             for value in self.values[previous_end:stop]:
                 self.agg.step(value)
         return self.agg.finalize()
-
-
-class AggKernel(abc.ABC):
-    def __init__(self):
-        self.count = 0
-
-    @abc.abstractmethod
-    def finalize(self):
-        """Return the final value of the aggregation."""
-
-
-class UnaryAggKernel(AggKernel):
-    @abc.abstractmethod
-    def step(self, value) -> None:
-        """Update the state of the aggregation with `value`."""
 
 
 class Sum(UnaryAggKernel):

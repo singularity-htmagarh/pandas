@@ -41,7 +41,7 @@ import pandas.core.common as com
 from pandas.core.generic import _shared_docs
 from pandas.core.groupby.base import GroupByMixin
 from pandas.core.index import Index, MultiIndex, ensure_index
-from pandas.core.window.indexer import BaseIndexer
+from pandas.core.window_.indexer import BaseIndexer
 
 _shared_docs = dict(**_shared_docs)
 _doc_template = """

@@ -1,6 +1,6 @@
 import pytest
 
-from pandas.core.window.indexers import BaseIndexer
+from pandas.core.window_.indexers import BaseIndexer
 
 from pandas import date_range, offsets
 

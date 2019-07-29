@@ -10,10 +10,13 @@ BeginEnd = Tuple[np.ndarray, np.ndarray]
 
 class BaseIndexer(abc.ABC):
     """Base class for window bounds calculations"""
-    def __init__(self,
-                 index=None,
-                 offset: Optional[Union[str, DateOffset]] = None,
-                 keys: Optional[Sequence[np.ndarray]] = None):
+
+    def __init__(
+        self,
+        index=None,
+        offset: Optional[Union[str, DateOffset]] = None,
+        keys: Optional[Sequence[np.ndarray]] = None,
+    ):
         """
         Parameters
         ----------
@@ -33,13 +36,15 @@ class BaseIndexer(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def get_window_bounds(cls,
-                          values: Optional[np.ndarray] = None,
-                          window_size: int = 0,
-                          min_periods: Optional[int] = None,
-                          center: Optional[bool] = None,
-                          closed: Optional[str] = None,
-                          win_type: Optional[str] = None) -> BeginEnd:
+    def get_window_bounds(
+        cls,
+        values: Optional[np.ndarray] = None,
+        window_size: int = 0,
+        min_periods: Optional[int] = None,
+        center: Optional[bool] = None,
+        closed: Optional[str] = None,
+        win_type: Optional[str] = None,
+    ) -> BeginEnd:
         """
         Computes the bounds of a window.
 
@@ -74,14 +79,15 @@ class BaseIndexer(abc.ABC):
 
 
 class FixedWindowIndexer(BaseIndexer):
-
-    def get_window_bounds(self,
-                          values: Optional[np.ndarray] = None,
-                          window_size: int = 0,
-                          min_periods: Optional[int] = None,
-                          center: Optional[bool] = None,
-                          closed: Optional[str] = None,
-                          win_type: Optional[str] = None):
+    def get_window_bounds(
+        self,
+        values: Optional[np.ndarray] = None,
+        window_size: int = 0,
+        min_periods: Optional[int] = None,
+        center: Optional[bool] = None,
+        closed: Optional[str] = None,
+        win_type: Optional[str] = None,
+    ):
         num_values = len(values) if values is not None else 0
         start_s = np.zeros(window_size, dtype=np.int64)
         start_e = np.arange(window_size, num_values, dtype=np.int64) - window_size + 1
@@ -94,34 +100,35 @@ class FixedWindowIndexer(BaseIndexer):
 
 
 class VariableWindowIndexer(BaseIndexer):
-
     def _calculate_closed_bounds(self, closed: Optional[str]) -> Tuple[bool, bool]:
         left_closed = False
         right_closed = False
 
         # if windows is variable, default is 'right', otherwise default is 'both'
         if closed is None:
-            closed = 'right' if self.index is not None else 'both'
+            closed = "right" if self.index is not None else "both"
 
-        if closed == 'both':
+        if closed == "both":
             left_closed = True
             right_closed = True
 
-        elif closed == 'right':
+        elif closed == "right":
             right_closed = True
 
-        elif closed == 'left':
+        elif closed == "left":
             left_closed = True
 
         return left_closed, right_closed
 
-    def get_window_bounds(self,
-                          values: Optional[np.ndarray] = None,
-                          window_size: int = 0,
-                          min_periods: Optional[int] = None,
-                          center: Optional[bool] = None,
-                          closed: Optional[str] = None,
-                          win_type: Optional[str] = None):
+    def get_window_bounds(
+        self,
+        values: Optional[np.ndarray] = None,
+        window_size: int = 0,
+        min_periods: Optional[int] = None,
+        center: Optional[bool] = None,
+        closed: Optional[str] = None,
+        win_type: Optional[str] = None,
+    ):
 
         left_closed, right_closed = self._calculate_closed_bounds(closed)
 

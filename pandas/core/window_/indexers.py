@@ -79,6 +79,7 @@ class BaseIndexer(abc.ABC):
 
 
 class FixedWindowIndexer(BaseIndexer):
+    """Calculate window boundaries that have a fixed window size"""
     def get_window_bounds(
         self,
         values: Optional[np.ndarray] = None,
@@ -88,6 +89,16 @@ class FixedWindowIndexer(BaseIndexer):
         closed: Optional[str] = None,
         win_type: Optional[str] = None,
     ):
+        """
+        Examples
+        --------
+        >>> FixedWindowIndexer().get_window_bounds(np.arange(10), 2)
+        (array([0, 0, 1, 2, 3, 4, 5, 6, 7, 8]),
+         array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
+
+        >>> FixedWindowIndexer().get_window_bounds(np.arange(10), 2)
+        (array([0, 0, 0, 1, 2]), array([1, 2, 3, 4, 5]))
+        """
         num_values = len(values) if values is not None else 0
         start_s = np.zeros(window_size, dtype=np.int64)
         start_e = np.arange(window_size, num_values, dtype=np.int64) - window_size + 1
@@ -100,7 +111,29 @@ class FixedWindowIndexer(BaseIndexer):
 
 
 class VariableWindowIndexer(BaseIndexer):
+    """Calculate window boundaries with variable closed boundaries and index dependent"""
     def _calculate_closed_bounds(self, closed: Optional[str]) -> Tuple[bool, bool]:
+        """
+        Evaluate the left and right closed boundary behavior based on
+        the closed parameter.
+
+        Parameters
+        ----------
+        closed : str
+            One of right, left, both, or None
+
+
+        Examples
+        --------
+        >>> VariableWindowIndexer(np.arange(10))._calculate_closed_bounds(None)
+        # Right default
+        (False, True)
+        >>> VariableWindowIndexer()._calculate_closed_bounds(None)
+        # Both default
+        (True, True)
+        >>> VariableWindowIndexer()._calculate_closed_bounds('left')
+        (True, False)
+        """
         left_closed = False
         right_closed = False
 
@@ -129,7 +162,19 @@ class VariableWindowIndexer(BaseIndexer):
         closed: Optional[str] = None,
         win_type: Optional[str] = None,
     ):
-
+        """
+        Examples
+        --------
+        >>> variable = VariableWindowIndexer(np.arange(10))
+        >>> variable.get_window_bounds(np.arange(10), 2)
+        (array([0, 0, 1, 2, 3, 4, 5, 6, 7, 8]),
+         array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
+        >>> variable.get_window_bounds(np.arange(10), 2, closed='left')
+        (array([0, 0, 0, 1, 2, 3, 4, 5, 6, 7]), array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+        >>> variable.get_window_bounds(np.arange(10), 2, closed='both')
+        (array([0, 0, 0, 1, 2, 3, 4, 5, 6, 7]),
+         array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
+        """
         left_closed, right_closed = self._calculate_closed_bounds(closed)
 
         num_values = len(values) if values is not None else 0

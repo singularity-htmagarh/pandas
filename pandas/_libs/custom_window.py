@@ -17,8 +17,7 @@ BeginEnd = Tuple[np.ndarray, np.ndarray]
 
 
 class BaseIndexer(abc.ABC):
-    """Base class to calculate custom rolling window bounds"""
-    def __init__(self, index, offset, keys) -> None:
+    def __init__(self, index, offset, keys):
         # TODO: The alternative is for the `rolling` API to accept
         #  index, offset, and keys as keyword arguments
         self.index = index
@@ -61,4 +60,3 @@ class BaseIndexer(abc.ABC):
             window
 
         """
-

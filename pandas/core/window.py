@@ -42,6 +42,7 @@ import pandas.core.common as com
 from pandas.core.generic import _shared_docs
 from pandas.core.groupby.base import GroupByMixin
 from pandas.core.index import Index, MultiIndex, ensure_index
+from panda.core.window_.aggregators import rolling_aggregation, AggKernel, Mean
 
 _shared_docs = dict(**_shared_docs)
 _doc_template = """
@@ -942,6 +943,14 @@ class _Rolling(_Window):
                     arg = ensure_float64(arg)
                     return cfunc(arg, window, minp, index_as_array, closed, **kwargs)
 
+            # TODO: maybe this doesn't fit in the current "_apply" framework, but we need to
+            #  follow the wrapping handled in this function
+            elif isinstance(func, AggKernel):
+                def calc(values):
+                    # TODO: New call here to get_window_bounds
+                    begin, end = None, None
+                    return rolling_aggregation(values, begin=begin, end=end, kernel=func)
+
             # calculation function
             if center:
                 offset = _offset(window, center)
@@ -1181,6 +1190,7 @@ class _Rolling_and_Expanding(_Rolling):
 
     def mean(self, *args, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
+        # return self._apply(Mean, "mean", **kwargs)
         return self._apply("roll_mean", "mean", **kwargs)
 
     _shared_docs["median"] = dedent(

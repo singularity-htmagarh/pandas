@@ -10,7 +10,6 @@ import warnings
 
 import numpy as np
 
-import pandas._libs.custom_window as libwindow_custom
 import pandas._libs.window as libwindow
 from pandas.compat._optional import import_optional_dependency
 from pandas.compat.numpy import function as nv
@@ -42,6 +41,7 @@ import pandas.core.common as com
 from pandas.core.generic import _shared_docs
 from pandas.core.groupby.base import GroupByMixin
 from pandas.core.index import Index, MultiIndex, ensure_index
+from pandas.core.window_.indexers import BaseIndexer
 
 _shared_docs = dict(**_shared_docs)
 _doc_template = """
@@ -774,7 +774,7 @@ class Window(_Window):
         super().validate()
 
         window = self.window
-        if isinstance(window, (list, tuple, np.ndarray, libwindow_custom.BaseIndexer)):
+        if isinstance(window, (list, tuple, np.ndarray, BaseIndexer)):
             pass
         elif is_integer(window):
             if window <= 0:
@@ -846,7 +846,7 @@ class Window(_Window):
             win_type = _validate_win_type(self.win_type, kwargs)
             # GH #15662. `False` makes symmetric window, rather than periodic.
             return sig.get_window(win_type, window, False).astype(float)
-        elif isinstance(window, libwindow_custom.BaseIndexer):
+        elif isinstance(window, BaseIndexer):
             return window.get_window_span(
                 win_type=self.win_type,
                 min_periods=self.min_periods,
@@ -1741,7 +1741,7 @@ class Rolling(_Rolling_and_Expanding):
             # min_periods must be an integer
             if self.min_periods is None:
                 self.min_periods = 1
-        elif isinstance(self.window, libwindow_custom.BaseIndexer):
+        elif isinstance(self.window, BaseIndexer):
             pass
         elif not is_integer(self.window):
             raise ValueError("window must be an integer")

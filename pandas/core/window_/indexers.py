@@ -74,7 +74,6 @@ class BaseIndexer(abc.ABC):
         BeginEnd
             A tuple of ndarray[int64]s, indicating the boundaries of each
             window
-
         """
 
 
@@ -133,6 +132,11 @@ class VariableWindowIndexer(BaseIndexer):
         (True, True)
         >>> VariableWindowIndexer()._calculate_closed_bounds('left')
         (True, False)
+
+        Returns
+        -------
+        Tuple
+            Tuple with 2 boolean values for left and right closed behavior
         """
         left_closed = False
         right_closed = False
@@ -166,11 +170,14 @@ class VariableWindowIndexer(BaseIndexer):
         Examples
         --------
         >>> variable = VariableWindowIndexer(np.arange(10))
+
         >>> variable.get_window_bounds(np.arange(10), 2)
         (array([0, 0, 1, 2, 3, 4, 5, 6, 7, 8]),
          array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
+
         >>> variable.get_window_bounds(np.arange(10), 2, closed='left')
         (array([0, 0, 0, 1, 2, 3, 4, 5, 6, 7]), array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+
         >>> variable.get_window_bounds(np.arange(10), 2, closed='both')
         (array([0, 0, 0, 1, 2, 3, 4, 5, 6, 7]),
          array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))

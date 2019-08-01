@@ -55,7 +55,7 @@ class BaseIndexer(abc.ABC):
             values that will have the rolling operation applied
 
         window_size : int, default 0
-            min_periods passed from the top level rolling API
+            the number of rows in a window
 
         min_periods : int, default None
             min_periods passed from the top level rolling API
@@ -100,10 +100,10 @@ class FixedWindowIndexer(BaseIndexer):
         """
         num_values = len(values) if values is not None else 0
         start_s = np.zeros(window_size, dtype=np.int64)
-        start_e = np.arange(window_size, num_values, dtype=np.int64) - window_size + 1
+        start_e = np.arange(1, num_values - window_size + 1, dtype=np.int64)
         start = np.concatenate([start_s, start_e])
 
-        end_s = np.arange(window_size, dtype=np.int64) + 1
+        end_s = np.arange(1, window_size + 1, dtype=np.int64)
         end_e = start_e + window_size
         end = np.concatenate([end_s, end_e])
         return start, end

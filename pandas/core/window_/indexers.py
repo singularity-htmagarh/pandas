@@ -38,7 +38,7 @@ class BaseIndexer(abc.ABC):
     @abc.abstractmethod
     def get_window_bounds(
         cls,
-        values: Optional[np.ndarray] = None,
+        num_values: int = 0,
         window_size: int = 0,
         min_periods: Optional[int] = None,
         center: Optional[bool] = None,
@@ -50,9 +50,8 @@ class BaseIndexer(abc.ABC):
 
         Parameters
         ----------
-        # TODO: should users have access to _all_ the values or just the length (len(values))?
-        values : np.ndarray, default None
-            values that will have the rolling operation applied
+        num_values : int, default 0
+            number of values that will be aggregated over
 
         window_size : int, default 0
             the number of rows in a window
@@ -81,7 +80,7 @@ class FixedWindowIndexer(BaseIndexer):
     """Calculate window boundaries that have a fixed window size"""
     def get_window_bounds(
         self,
-        values: Optional[np.ndarray] = None,
+        num_values: int = 0,
         window_size: int = 0,
         min_periods: Optional[int] = None,
         center: Optional[bool] = None,
@@ -98,7 +97,6 @@ class FixedWindowIndexer(BaseIndexer):
         >>> FixedWindowIndexer().get_window_bounds(np.arange(10), 2)
         (array([0, 0, 0, 1, 2]), array([1, 2, 3, 4, 5]))
         """
-        num_values = len(values) if values is not None else 0
         start_s = np.zeros(window_size, dtype=np.int64)
         start_e = np.arange(1, num_values - window_size + 1, dtype=np.int64)
         start = np.concatenate([start_s, start_e])
@@ -159,7 +157,7 @@ class VariableWindowIndexer(BaseIndexer):
 
     def get_window_bounds(
         self,
-        values: Optional[np.ndarray] = None,
+        num_values: int = 0,
         window_size: int = 0,
         min_periods: Optional[int] = None,
         center: Optional[bool] = None,
@@ -183,8 +181,6 @@ class VariableWindowIndexer(BaseIndexer):
          array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
         """
         left_closed, right_closed = self._calculate_closed_bounds(closed)
-
-        num_values = len(values) if values is not None else 0
 
         start = np.empty(num_values, dtype=np.int64)
         start.fill(-1)

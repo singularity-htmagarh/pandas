@@ -1,6 +1,6 @@
 import pytest
 
-import pandas._libs.custom_window as libwindow_custom
+from pandas.core.window_.indexers import BaseIndexer
 
 from pandas import date_range, offsets
 
@@ -55,7 +55,7 @@ def min_periods(request):
 
 @pytest.fixture
 def dummy_custom_indexer():
-    class DummyIndexer(libwindow_custom.BaseIndexer):
+    class DummyIndexer(BaseIndexer):
         def __init__(self, index, offset, keys):
             super().__init__(index, offset, keys)
 

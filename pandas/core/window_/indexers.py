@@ -34,10 +34,9 @@ class BaseIndexer(abc.ABC):
         self.offset = offset
         self.keys = keys
 
-    @classmethod
     @abc.abstractmethod
     def get_window_bounds(
-        cls,
+        self,
         num_values: int = 0,
         window_size: int = 0,
         min_periods: Optional[int] = None,
@@ -87,7 +86,7 @@ class FixedWindowIndexer(BaseIndexer):
         center: Optional[bool] = None,
         closed: Optional[str] = None,
         win_type: Optional[str] = None,
-    ):
+    ) -> BeginEnd:
         """
         Examples
         --------
@@ -167,7 +166,7 @@ class VariableWindowIndexer(BaseIndexer):
         center: Optional[bool] = None,
         closed: Optional[str] = None,
         win_type: Optional[str] = None,
-    ):
+    ) -> BeginEnd:
         """
         Examples
         --------

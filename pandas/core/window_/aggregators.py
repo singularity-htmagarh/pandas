@@ -74,6 +74,11 @@ class SubtractableAggregator(BaseAggregator):
         self.previous_end = stop
         return self.agg.finalize()
 
+    def reset(self):
+        """Reset previous_start and previous_end to -1"""
+        self.previous_start = -1
+        self.previous_end = -1
+
 
 class Sum(UnaryAggKernel):
     def __init__(self) -> None:

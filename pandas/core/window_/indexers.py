@@ -78,6 +78,7 @@ class BaseIndexer(abc.ABC):
 
 class FixedWindowIndexer(BaseIndexer):
     """Calculate window boundaries that have a fixed window size"""
+
     def get_window_bounds(
         self,
         num_values: int = 0,
@@ -108,7 +109,10 @@ class FixedWindowIndexer(BaseIndexer):
 
 
 class VariableWindowIndexer(BaseIndexer):
-    """Calculate window boundaries with variable closed boundaries and index dependent"""
+    """
+    Calculate window boundaries with variable closed boundaries and index dependent
+    """
+
     def _calculate_closed_bounds(self, closed: Optional[str]) -> Tuple[bool, bool]:
         """
         Evaluate the left and right closed boundary behavior based on

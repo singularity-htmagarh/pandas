@@ -41,8 +41,12 @@ import pandas.core.common as com
 from pandas.core.generic import _shared_docs
 from pandas.core.groupby.base import GroupByMixin
 from pandas.core.index import Index, MultiIndex, ensure_index
-from panda.core.window_.aggregators import rolling_aggregation, AggKernel, Mean
-from pandas.core.window_.indexers import BaseIndexer
+from panda.core.window_.aggregators import rolling_mean
+from pandas.core.window_.indexers import (
+    BaseIndexer,
+    FixedWindowIndexer,
+    VariableWindowIndexer,
+)
 
 _shared_docs = dict(**_shared_docs)
 _doc_template = """
@@ -381,6 +385,14 @@ class _Window(PandasObject, SelectionMixin):
 
         return func
 
+    def _get_window_indexer(self):
+        """
+        Return an Indexer class to get the window boundaries.
+        """
+        if self.is_freq_type:
+            return VariableWindowIndexer()
+        return FixedWindowIndexer()
+
     def _apply(
         self,
         func: Union[str, Callable],
@@ -453,25 +465,39 @@ class _Window(PandasObject, SelectionMixin):
 
                 func = self._get_roll_func(cfunc, check_minp, index_as_array, **kwargs)
 
-            # calculation function
-            if center:
-                offset = _offset(window, center)
-                additional_nans = np.array([np.NaN] * offset)
+                # calculation function
+                if center:
+                    offset = _offset(window, center)
+                    additional_nans = np.array([np.NaN] * offset)
+
+                    def calc(x):
+                        return func(
+                            np.concatenate((x, additional_nans)),
+                            window,
+                            min_periods=self.min_periods,
+                            closed=self.closed,
+                        )
+
+                else:
+
+                    def calc(x):
+                        return func(
+                            x, window, min_periods=self.min_periods, closed=self.closed
+                        )
+
+            elif isinstance(func, callable):
+                # TODO: Can we guarantee this path is for our new rolling backend?
+                window_bound_indexer = self._get_window_indexer()
+                start, end = window_bound_indexer.get_window_bounds(
+                    values,
+                    window,
+                    check_minp(kwargs.get('min_periods'), window),
+                    center,
+                    kwargs.get('closed')
+                )
 
                 def calc(x):
-                    return func(
-                        np.concatenate((x, additional_nans)),
-                        window,
-                        min_periods=self.min_periods,
-                        closed=self.closed,
-                    )
-
-            else:
-
-                def calc(x):
-                    return func(
-                        x, window, min_periods=self.min_periods, closed=self.closed
-                    )
+                    return func(x, begin=start, end=end)
 
             with np.errstate(all="ignore"):
                 if values.ndim > 1:
@@ -1192,8 +1218,8 @@ class _Rolling_and_Expanding(_Rolling):
 
     def mean(self, *args, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
-        # return self._apply(Mean, "mean", **kwargs)
-        return self._apply("roll_mean", "mean", **kwargs)
+        return self._apply(rolling_mean, "mean", **kwargs)
+        #return self._apply("roll_mean", "mean", **kwargs)
 
     _shared_docs["median"] = dedent(
         """

@@ -1,4 +1,5 @@
 import abc
+from functools import partial
 from typing import Optional
 
 import numpy as np
@@ -132,3 +133,6 @@ def rolling_aggregation(
     for i, (start, stop) in enumerate(zip(begin, end)):
         result[i] = aggregator.query(start, stop)
     return result
+
+
+rolling_mean = partial(rolling_aggregation, kernel_class=Mean)

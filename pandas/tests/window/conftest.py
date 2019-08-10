@@ -1,8 +1,7 @@
 import pytest
 
-from pandas.core.window_.indexers import BaseIndexer
-
 from pandas import date_range, offsets
+from pandas.core.window_.indexers import BaseIndexer
 
 
 @pytest.fixture(params=[True, False])

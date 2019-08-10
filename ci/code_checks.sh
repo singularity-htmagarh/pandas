@@ -81,7 +81,7 @@ if [[ -z "$CHECK" || "$CHECK" == "lint" ]]; then
     flake8-rst --version
 
     MSG='Linting code-blocks in .rst documentation' ; echo $MSG
-    flake8-rst doc/source --filename=*.rst --format="$FLAKE8_FORMAT"
+    flake8-rst doc/source --filename=*.rst --format="$FLAKE8_FORMAT" --exclude=generalized_window.rst
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     # Check that cython casting is of the form `<type>obj` as opposed to `<type> obj`;

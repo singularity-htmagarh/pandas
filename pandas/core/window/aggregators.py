@@ -9,6 +9,7 @@ from pandas._typing import Scalar
 
 class BaseAggregator(abc.ABC):
     """Interface to return the current value of the rolling aggregation at the current step"""
+
     def __init__(self, values: np.ndarray) -> None:
         self.values = values
 
@@ -35,6 +36,7 @@ class BaseAggregator(abc.ABC):
 
 class AggKernel(abc.ABC):
     """Interface that computes the aggregation value"""
+
     def __init__(self):
         self.count = 0
 
@@ -67,9 +69,9 @@ class SubtractableAggregator(BaseAggregator):
             for value in self.values[start:stop]:
                 self.agg.step(value)
         else:
-            for value in self.values[self.previous_start:start]:
+            for value in self.values[self.previous_start : start]:
                 self.agg.invert(value)
-            for value in self.values[self.previous_end:stop]:
+            for value in self.values[self.previous_end : stop]:
                 self.agg.step(value)
         self.previous_start = start
         self.previous_end = stop
@@ -109,7 +111,6 @@ class Sum(UnaryAggKernel):
 
 
 class Mean(Sum):
-
     def finalize(self) -> Optional[float]:
         if not self.count:
             return None
@@ -117,10 +118,7 @@ class Mean(Sum):
 
 
 def rolling_aggregation(
-    values: np.ndarray,
-    begin: np.ndarray,
-    end: np.ndarray,
-    kernel_class,
+    values: np.ndarray, begin: np.ndarray, end: np.ndarray, kernel_class
 ) -> np.ndarray:
     """Perform a generic rolling aggregation"""
     aggregator = kernel_class.make_aggregator(values)

@@ -487,9 +487,9 @@ class _Window(PandasObject, SelectionMixin):
                 start, end = window_bound_indexer.get_window_bounds(
                     len(values),
                     window,
-                    check_minp(kwargs.get('min_periods'), window),
+                    check_minp(kwargs.get("min_periods"), window),
                     center,
-                    kwargs.get('closed')
+                    kwargs.get("closed"),
                 )
 
                 def calc(x):
@@ -1177,7 +1177,7 @@ class _Rolling_and_Expanding(_Rolling):
     def mean(self, *args, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
         return self._apply(rolling_mean, "mean", **kwargs)
-        #return self._apply("roll_mean", "mean", **kwargs)
+        # return self._apply("roll_mean", "mean", **kwargs)
 
     _shared_docs["median"] = dedent(
         """

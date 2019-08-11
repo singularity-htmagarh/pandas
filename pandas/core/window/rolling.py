@@ -38,6 +38,7 @@ from pandas._typing import Axis, FrameOrSeries, Scalar
 from pandas.core.base import DataError, PandasObject, SelectionMixin
 import pandas.core.common as com
 from pandas.core.index import Index, ensure_index
+from pandas.core.window.aggregators import rolling_mean
 from pandas.core.window.common import (
     _doc_template,
     _flex_binary_moment,
@@ -48,6 +49,7 @@ from pandas.core.window.common import (
     _use_window,
     _zsqrt,
 )
+from pandas.core.window.indexers import FixedWindowIndexer, VariableWindowIndexer
 
 
 class _Window(PandasObject, SelectionMixin):
@@ -475,7 +477,7 @@ class _Window(PandasObject, SelectionMixin):
                             x, window, min_periods=self.min_periods, closed=self.closed
                         )
 
-            elif isinstance(func, callable):
+            elif isinstance(func, Callable):
                 # TODO: Can we guarantee this path is for our new rolling backend?
                 window_bound_indexer = self._get_window_indexer()
                 start, end = window_bound_indexer.get_window_bounds(

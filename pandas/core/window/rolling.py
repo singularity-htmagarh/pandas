@@ -49,7 +49,11 @@ from pandas.core.window.common import (
     _use_window,
     _zsqrt,
 )
-from pandas.core.window.indexers import FixedWindowIndexer, VariableWindowIndexer
+from pandas.core.window.indexers import (
+    BaseIndexer,
+    FixedWindowIndexer,
+    VariableWindowIndexer,
+)
 
 
 class _Window(PandasObject, SelectionMixin):
@@ -481,7 +485,7 @@ class _Window(PandasObject, SelectionMixin):
                 # TODO: Can we guarantee this path is for our new rolling backend?
                 window_bound_indexer = self._get_window_indexer()
                 start, end = window_bound_indexer.get_window_bounds(
-                    values,
+                    len(values),
                     window,
                     check_minp(kwargs.get('min_periods'), window),
                     center,

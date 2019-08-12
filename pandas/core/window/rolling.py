@@ -40,6 +40,7 @@ import pandas.core.common as com
 from pandas.core.index import Index, ensure_index
 from pandas.core.window.aggregators import rolling_mean
 from pandas.core.window.common import (
+    _check_min_periods,
     _doc_template,
     _flex_binary_moment,
     _GroupByMixin,
@@ -381,13 +382,21 @@ class _Window(PandasObject, SelectionMixin):
 
         return func
 
-    def _get_window_indexer(self):
+    def _get_window_indexer(self, index_as_array):
         """
         Return an Indexer class to get the window boundaries.
+
+        Parameters
+        ----------
+        index_as_array : ndarray of the index
+
+        Returns
+        -------
+        VariableWindowIndexer or FixedWindowIndexer
         """
         if self.is_freq_type:
-            return VariableWindowIndexer()
-        return FixedWindowIndexer()
+            return VariableWindowIndexer(index=index_as_array)
+        return FixedWindowIndexer(index=index_as_array)
 
     def _apply(
         self,
@@ -450,16 +459,40 @@ class _Window(PandasObject, SelectionMixin):
                 results.append(values.copy())
                 continue
 
-            # if we have a string function name, wrap it
-            if isinstance(func, str):
-                cfunc = getattr(libwindow, func, None)
-                if cfunc is None:
-                    raise ValueError(
-                        "we do not support this function "
-                        "in libwindow.{func}".format(func=func)
+            # Temporary path for our POC
+            if name == "mean":
+                window_bound_indexer = self._get_window_indexer(
+                    index_as_array=index_as_array
+                )
+                start, end = window_bound_indexer.get_window_bounds(
+                    len(values),
+                    window,
+                    check_minp(self.min_periods, window),
+                    center,
+                    kwargs.get("closed"),
+                )
+                minimum_periods = _check_min_periods(
+                    window, _use_window(self.min_periods, window), len(values)
+                )
+
+                def calc(x):
+                    return func(
+                        x, begin=start, end=end, minimum_periods=minimum_periods
                     )
 
-                func = self._get_roll_func(cfunc, check_minp, index_as_array, **kwargs)
+            else:
+                # if we have a string function name, wrap it
+                if isinstance(func, str):
+                    cfunc = getattr(libwindow, func, None)
+                    if cfunc is None:
+                        raise ValueError(
+                            "we do not support this function "
+                            "in libwindow.{func}".format(func=func)
+                        )
+
+                    func = self._get_roll_func(
+                        cfunc, check_minp, index_as_array, **kwargs
+                    )
 
                 # calculation function
                 if center:
@@ -480,20 +513,6 @@ class _Window(PandasObject, SelectionMixin):
                         return func(
                             x, window, min_periods=self.min_periods, closed=self.closed
                         )
-
-            elif isinstance(func, Callable):
-                # TODO: Can we guarantee this path is for our new rolling backend?
-                window_bound_indexer = self._get_window_indexer()
-                start, end = window_bound_indexer.get_window_bounds(
-                    len(values),
-                    window,
-                    check_minp(kwargs.get("min_periods"), window),
-                    center,
-                    kwargs.get("closed"),
-                )
-
-                def calc(x):
-                    return func(x, begin=start, end=end)
 
             with np.errstate(all="ignore"):
                 if values.ndim > 1:

@@ -13,8 +13,9 @@ class BaseAggregator(abc.ABC):
     at the current step
     """
 
-    def __init__(self, values: np.ndarray) -> None:
+    def __init__(self, values: np.ndarray, min_periods: int) -> None:
         self.values = values
+        self.min_periods = min_periods
 
     @abc.abstractmethod
     def query(self, start: int, stop: int) -> Scalar:
@@ -49,7 +50,9 @@ class AggKernel(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def make_aggregator(cls, values: np.ndarray) -> BaseAggregator:
+    def make_aggregator(
+        cls, values: np.ndarray, minimum_periods: int
+    ) -> BaseAggregator:
         """Return an aggregator that performs the aggregation calculation"""
 
 
@@ -60,13 +63,13 @@ class UnaryAggKernel(AggKernel):
 
 
 class SubtractableAggregator(BaseAggregator):
-    def __init__(self, values: np.ndarray, agg: AggKernel) -> None:
-        super().__init__(values)
+    def __init__(self, values: np.ndarray, min_periods: int, agg: AggKernel) -> None:
+        super().__init__(values, min_periods)
         self.agg = agg
         self.previous_start = -1
         self.previous_end = -1
 
-    def query(self, start: int, stop: int) -> Scalar:
+    def query(self, start: int, stop: int) -> Optional[Scalar]:
         """Compute a value based on changes in bounds."""
         if self.previous_start == -1 and self.previous_end == -1:
             for value in self.values[start:stop]:
@@ -78,7 +81,9 @@ class SubtractableAggregator(BaseAggregator):
                 self.agg.step(value)
         self.previous_start = start
         self.previous_end = stop
-        return self.agg.finalize()
+        if np.count_nonzero(~np.isnan(self.values[start:stop])) >= self.min_periods:
+            return self.agg.finalize()
+        return None
 
 
 class Sum(UnaryAggKernel):
@@ -87,13 +92,13 @@ class Sum(UnaryAggKernel):
         self.total = 0
 
     def step(self, value) -> None:
-        if value is not None:
+        if not np.isnan(value):
             self.count += 1
             self.total += value
 
     def invert(self, value) -> None:
         """Used only in subtractable kernels."""
-        if value is not None:
+        if not np.isnan(value):
             self.count -= 1
             self.total -= value
 
@@ -108,8 +113,8 @@ class Sum(UnaryAggKernel):
         self.count += other.count
 
     @classmethod
-    def make_aggregator(cls, values: np.ndarray) -> BaseAggregator:
-        aggregator = SubtractableAggregator(values, cls())
+    def make_aggregator(cls, values: np.ndarray, min_periods: int) -> BaseAggregator:
+        aggregator = SubtractableAggregator(values, min_periods, cls())
         return aggregator
 
 
@@ -121,10 +126,14 @@ class Mean(Sum):
 
 
 def rolling_aggregation(
-    values: np.ndarray, begin: np.ndarray, end: np.ndarray, kernel_class
+    values: np.ndarray,
+    begin: np.ndarray,
+    end: np.ndarray,
+    minimum_periods: int,
+    kernel_class,
 ) -> np.ndarray:
     """Perform a generic rolling aggregation"""
-    aggregator = kernel_class.make_aggregator(values)
+    aggregator = kernel_class.make_aggregator(values, minimum_periods)
     result = np.empty(len(begin))
     for i, (start, stop) in enumerate(zip(begin, end)):
         result[i] = aggregator.query(start, stop)

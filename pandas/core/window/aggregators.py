@@ -8,7 +8,10 @@ from pandas._typing import Scalar
 
 
 class BaseAggregator(abc.ABC):
-    """Interface to return the current value of the rolling aggregation at the current step"""
+    """
+    Interface to return the current value of the rolling aggregation
+    at the current step
+    """
 
     def __init__(self, values: np.ndarray) -> None:
         self.values = values

@@ -469,7 +469,7 @@ class _Window(PandasObject, SelectionMixin):
                     window,
                     check_minp(self.min_periods, window),
                     center,
-                    kwargs.get("closed"),
+                    self.closed,
                 )
                 minimum_periods = _check_min_periods(
                     window, _use_window(self.min_periods, window), len(values)

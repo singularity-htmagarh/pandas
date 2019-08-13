@@ -37,6 +37,22 @@ class BaseAggregator(abc.ABC):
             A scalar value that is the result of the aggregation.
         """
 
+    def _meets_minimum_periods(self, values: np.ndarray) -> bool:
+        """
+        Checks that the passed values contains more non-NaN values
+        than min_periods.
+
+        Parameters
+        ----------
+        values: ndarray
+            values of the current window
+
+        Returns
+        -------
+        Bool
+        """
+        return np.count_nonzero(~np.isnan(values)) >= self.min_periods
+
 
 class AggKernel(abc.ABC):
     """Interface that computes the aggregation value"""
@@ -81,7 +97,7 @@ class SubtractableAggregator(BaseAggregator):
                 self.agg.step(value)
         self.previous_start = start
         self.previous_end = stop
-        if np.count_nonzero(~np.isnan(self.values[start:stop])) >= self.min_periods:
+        if self._meets_minimum_periods(self.values[start:stop]):
             return self.agg.finalize()
         return None
 

@@ -461,24 +461,39 @@ class _Window(PandasObject, SelectionMixin):
 
             # Temporary path for our POC
             if name == "mean":
+                if center:
+                    offset = _offset(window, center)
+                    additional_nans = np.array([np.nan] * offset)
+
+                    def calc(x):
+                        return func(
+                            np.concatenate((x, additional_nans)),
+                            begin=start,
+                            end=end,
+                            minimum_periods=minimum_periods,
+                        )
+
+                else:
+                    offset = 0
+
+                    def calc(x):
+                        return func(
+                            x, begin=start, end=end, minimum_periods=minimum_periods
+                        )
+
                 window_bound_indexer = self._get_window_indexer(
                     index_as_array=index_as_array
                 )
                 start, end = window_bound_indexer.get_window_bounds(
-                    len(values),
+                    len(values) + offset,
                     window,
                     check_minp(self.min_periods, window),
                     center,
                     self.closed,
                 )
                 minimum_periods = _check_min_periods(
-                    window, _use_window(self.min_periods, window), len(values)
+                    window, _use_window(self.min_periods, window), len(values) + offset
                 )
-
-                def calc(x):
-                    return func(
-                        x, begin=start, end=end, minimum_periods=minimum_periods
-                    )
 
             else:
                 # if we have a string function name, wrap it

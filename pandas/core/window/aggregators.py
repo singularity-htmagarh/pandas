@@ -73,12 +73,14 @@ class AggKernel(abc.ABC):
 
 
 class UnaryAggKernel(AggKernel):
+    """Kernel to apply aggregations to singular inputs."""
     @abc.abstractmethod
     def step(self, value) -> None:
         """Update the state of the aggregation with `value`."""
 
 
 class SubtractableAggregator(BaseAggregator):
+    """Aggregator in which a current aggregated value is offset from a prior aggregated value."""
     def __init__(self, values: np.ndarray, min_periods: int, agg: AggKernel) -> None:
         super().__init__(values, min_periods)
         self.agg = agg
@@ -88,9 +90,11 @@ class SubtractableAggregator(BaseAggregator):
     def query(self, start: int, stop: int) -> Optional[Scalar]:
         """Compute a value based on changes in bounds."""
         if self.previous_start == -1 and self.previous_end == -1:
+            # First aggregation over the values
             for value in self.values[start:stop]:
                 self.agg.step(value)
         else:
+            # Subsequent aggregations are calculated based on prior values
             for value in self.values[self.previous_start : start]:
                 self.agg.invert(value)
             for value in self.values[self.previous_end : stop]:

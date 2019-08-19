@@ -11,6 +11,16 @@ class BaseAggregator(abc.ABC):
     """
     Interface to return the current value of the rolling aggregation
     at the current step
+
+    Attributes
+    ----------
+    values
+    min_periods
+
+    Methods
+    -------
+    query
+    _meets_minimum_periods
     """
 
     def __init__(self, values: np.ndarray, min_periods: int) -> None:
@@ -55,10 +65,14 @@ class BaseAggregator(abc.ABC):
 
 
 class AggKernel(abc.ABC):
-    """Interface that computes the aggregation value"""
+    """
+    Interface that computes the aggregation value
 
-    def __init__(self):
-        self.count = 0
+    Methods
+    -------
+    finalize
+    make_aggregator
+    """
 
     @abc.abstractmethod
     def finalize(self):
@@ -74,13 +88,18 @@ class AggKernel(abc.ABC):
 
 class UnaryAggKernel(AggKernel):
     """Kernel to apply aggregations to singular inputs."""
+
     @abc.abstractmethod
     def step(self, value) -> None:
         """Update the state of the aggregation with `value`."""
 
 
 class SubtractableAggregator(BaseAggregator):
-    """Aggregator in which a current aggregated value is offset from a prior aggregated value."""
+    """
+    Aggregator in which a current aggregated value
+    is offset from a prior aggregated value.
+    """
+
     def __init__(self, values: np.ndarray, min_periods: int, agg: AggKernel) -> None:
         super().__init__(values, min_periods)
         self.agg = agg
@@ -108,7 +127,7 @@ class SubtractableAggregator(BaseAggregator):
 
 class Sum(UnaryAggKernel):
     def __init__(self) -> None:
-        super().__init__()
+        self.count = 0
         self.total = 0
 
     def step(self, value) -> None:
@@ -128,7 +147,10 @@ class Sum(UnaryAggKernel):
         return self.total
 
     def combine(self, other) -> None:
-        """Used only in segment tree aggregator."""
+        """
+        Combine the total and count from another kernel.
+        Used only in segment tree aggregator.
+        """
         self.total += other.total
         self.count += other.count
 

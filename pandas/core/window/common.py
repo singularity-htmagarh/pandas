@@ -284,6 +284,10 @@ def _check_min_periods(
     floor: Optional[int] = None,
 ) -> int:
     """
+    Selects the final value of min_periods that should exist in each window.
+
+    Ensures there's at least 1 minimum period.
+
     Parameters
     ----------
     window: int

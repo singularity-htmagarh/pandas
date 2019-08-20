@@ -28,7 +28,7 @@ class BaseAggregator(abc.ABC):
         self.min_periods = min_periods
 
     @abc.abstractmethod
-    def query(self, start: int, stop: int) -> Scalar:
+    def query(self, start: int, stop: int) -> Optional[Scalar]:
         """
         Computes the result of an aggregation for values that are between
         the start and stop indices
@@ -93,6 +93,10 @@ class UnaryAggKernel(AggKernel):
     def step(self, value) -> None:
         """Update the state of the aggregation with `value`."""
 
+    @abc.abstractmethod
+    def invert(self, value) -> None:
+        """Undo the state of the aggregation with `value`."""
+
 
 class SubtractableAggregator(BaseAggregator):
     """
@@ -100,7 +104,9 @@ class SubtractableAggregator(BaseAggregator):
     is offset from a prior aggregated value.
     """
 
-    def __init__(self, values: np.ndarray, min_periods: int, agg: AggKernel) -> None:
+    def __init__(
+        self, values: np.ndarray, min_periods: int, agg: UnaryAggKernel
+    ) -> None:
         super().__init__(values, min_periods)
         self.agg = agg
         self.previous_start = -1
@@ -161,7 +167,7 @@ class Sum(UnaryAggKernel):
 
 
 class Mean(Sum):
-    def finalize(self) -> Optional[float]:
+    def finalize(self) -> Optional[float]:  # type: ignore
         if not self.count:
             return None
         return self.total / self.count

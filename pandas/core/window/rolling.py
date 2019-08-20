@@ -435,7 +435,7 @@ class _Window(PandasObject, SelectionMixin):
             check_minp = _use_window
 
         if window is None:
-            window = self._get_window(**kwargs)
+            apply_window = self._get_window(**kwargs)  # type: int
 
         blocks, obj = self._create_blocks()
         block_list = list(blocks)
@@ -462,7 +462,7 @@ class _Window(PandasObject, SelectionMixin):
             # Temporary path for our POC
             if name == "mean":
                 if center:
-                    offset = _offset(window, center)
+                    offset = _offset(apply_window, center)
                     additional_nans = np.array([np.nan] * offset)
 
                     def calc(x):
@@ -486,13 +486,15 @@ class _Window(PandasObject, SelectionMixin):
                 )
                 start, end = window_bound_indexer.get_window_bounds(
                     len(values) + offset,
-                    window,
-                    check_minp(self.min_periods, window),
+                    apply_window,
+                    check_minp(self.min_periods, apply_window),
                     center,
                     self.closed,
                 )
                 minimum_periods = _check_min_periods(
-                    window, _use_window(self.min_periods, window), len(values) + offset
+                    apply_window,
+                    _use_window(self.min_periods, apply_window),
+                    len(values) + offset,
                 )
 
             else:
@@ -511,13 +513,13 @@ class _Window(PandasObject, SelectionMixin):
 
                 # calculation function
                 if center:
-                    offset = _offset(window, center)
+                    offset = _offset(apply_window, center)
                     additional_nans = np.array([np.NaN] * offset)
 
                     def calc(x):
                         return func(
                             np.concatenate((x, additional_nans)),
-                            window,
+                            apply_window,
                             min_periods=self.min_periods,
                             closed=self.closed,
                         )
@@ -526,7 +528,10 @@ class _Window(PandasObject, SelectionMixin):
 
                     def calc(x):
                         return func(
-                            x, window, min_periods=self.min_periods, closed=self.closed
+                            x,
+                            apply_window,
+                            min_periods=self.min_periods,
+                            closed=self.closed,
                         )
 
             with np.errstate(all="ignore"):
@@ -537,7 +542,7 @@ class _Window(PandasObject, SelectionMixin):
                     result = np.asarray(result)
 
             if center:
-                result = self._center_window(result, window)
+                result = self._center_window(result, apply_window)
 
             results.append(result)
 

@@ -48,6 +48,7 @@ from pandas.core.window.common import (
     _use_window,
     _zsqrt,
 )
+from pandas.core.window_.indexers import BaseIndexer
 
 
 class _Window(PandasObject, SelectionMixin):

@@ -77,12 +77,12 @@ if [[ -z "$CHECK" || "$CHECK" == "lint" ]]; then
     flake8 --format="$FLAKE8_FORMAT" pandas/_libs --filename=*.pxi.in,*.pxd --select=E501,E302,E203,E111,E114,E221,E303,E231,E126,F403
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
-    echo "flake8-rst --version"
-    flake8-rst --version
+    #echo "flake8-rst --version"
+    #flake8-rst --version
 
-    MSG='Linting code-blocks in .rst documentation' ; echo $MSG
-    flake8-rst doc/source --filename=*.rst --format="$FLAKE8_FORMAT" --exclude=generalized_window.rst
-    RET=$(($RET + $?)) ; echo $MSG "DONE"
+    #MSG='Linting code-blocks in .rst documentation' ; echo $MSG
+    #flake8-rst doc/source --filename=*.rst --format="$FLAKE8_FORMAT"
+    #RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     # Check that cython casting is of the form `<type>obj` as opposed to `<type> obj`;
     # it doesn't make a difference, but we want to be internally consistent.

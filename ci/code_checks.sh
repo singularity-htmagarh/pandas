@@ -81,8 +81,7 @@ if [[ -z "$CHECK" || "$CHECK" == "lint" ]]; then
     flake8-rst --version
 
     MSG='Linting code-blocks in .rst documentation' ; echo $MSG
-    # For some reason --filename=*.rst and --exclude=generalized_window.rst also lints other *.rst files, upstream, issues
-    flake8-rst doc/source --filename=*.rst --format="$FLAKE8_FORMAT" --exclude=generalized_window.rst --ignore=F821,F811
+    flake8-rst doc/source --filename=*.rst --format="$FLAKE8_FORMAT"
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     # Check that cython casting is of the form `<type>obj` as opposed to `<type> obj`;

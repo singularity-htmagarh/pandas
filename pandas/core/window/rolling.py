@@ -484,7 +484,7 @@ class _Window(PandasObject, SelectionMixin):
                     _use_window(self.min_periods, apply_window),
                     len(values) + offset,
                 )
-                func = partial(
+                func = partial(  # type: ignore
                     func, begin=start, end=end, minimum_periods=minimum_periods
                 )
 
@@ -502,7 +502,7 @@ class _Window(PandasObject, SelectionMixin):
                         cfunc, check_minp, index_as_array, **kwargs
                     )
 
-                func = partial(
+                func = partial(  # type: ignore
                     func,
                     window=apply_window,
                     min_periods=self.min_periods,

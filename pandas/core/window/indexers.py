@@ -90,12 +90,12 @@ class FixedWindowIndexer(BaseIndexer):
         """
         Examples
         --------
-        >>> FixedWindowIndexer().get_window_bounds(np.arange(10), 2)
+        >>> FixedWindowIndexer().get_window_bounds(10, 2)
         (array([0, 0, 1, 2, 3, 4, 5, 6, 7, 8]),
          array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
 
-        >>> FixedWindowIndexer().get_window_bounds(np.arange(10), 2)
-        (array([0, 0, 0, 1, 2]), array([1, 2, 3, 4, 5]))
+        >>> FixedWindowIndexer().get_window_bounds(5, 2)
+        (array([0, 0, 1, 1, 2]), array([1, 2, 3, 4, 5]))
         """
         start_s = np.zeros(window_size, dtype=np.int64)
         start_e = np.arange(1, num_values - window_size + 1, dtype=np.int64)
@@ -175,14 +175,14 @@ class VariableWindowIndexer(BaseIndexer):
         --------
         >>> variable = VariableWindowIndexer(np.arange(10))
 
-        >>> variable.get_window_bounds(np.arange(10), 2)
+        >>> variable.get_window_bounds(10, 2)
         (array([0, 0, 1, 2, 3, 4, 5, 6, 7, 8]),
          array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
 
-        >>> variable.get_window_bounds(np.arange(10), 2, closed='left')
+        >>> variable.get_window_bounds(10, 2, closed='left')
         (array([0, 0, 0, 1, 2, 3, 4, 5, 6, 7]), array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
 
-        >>> variable.get_window_bounds(np.arange(10), 2, closed='both')
+        >>> variable.get_window_bounds(10, 2, closed='both')
         (array([0, 0, 0, 1, 2, 3, 4, 5, 6, 7]),
          array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
         """

@@ -101,9 +101,7 @@ class FixedWindowIndexer(BaseIndexer):
         start_e = np.arange(1, num_values - window_size + 1, dtype=np.int64)
         start = np.concatenate([start_s, start_e])
 
-        end_s = np.arange(1, window_size + 1, dtype=np.int64)
-        end_e = start_e + window_size
-        end = np.concatenate([end_s, end_e])
+        end = np.arange(1, num_values + 1, dtype=np.int64)
         if window_size > num_values:
             start = start[:num_values]
             end = end[:num_values]

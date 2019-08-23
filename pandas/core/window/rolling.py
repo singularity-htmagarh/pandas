@@ -3,6 +3,7 @@ Provide a generic structure to support window functions,
 similar to how we have a Groupby object.
 """
 from datetime import timedelta
+from functools import partial
 from textwrap import dedent
 from typing import Callable, List, Optional, Set, Union
 import warnings
@@ -459,27 +460,14 @@ class _Window(PandasObject, SelectionMixin):
                 results.append(values.copy())
                 continue
 
+            offset = 0
+            additional_nans = None
+            if center:
+                offset = _offset(apply_window, center)
+                additional_nans = np.array([np.nan] * offset)
+
             # Temporary path for our POC
             if name == "mean":
-                if center:
-                    offset = _offset(apply_window, center)
-                    additional_nans = np.array([np.nan] * offset)
-
-                    def calc(x):
-                        return func(
-                            np.concatenate((x, additional_nans)),
-                            begin=start,
-                            end=end,
-                            minimum_periods=minimum_periods,
-                        )
-
-                else:
-                    offset = 0
-
-                    def calc(x):
-                        return func(
-                            x, begin=start, end=end, minimum_periods=minimum_periods
-                        )
 
                 window_bound_indexer = self._get_window_indexer(
                     index_as_array=index_as_array
@@ -496,6 +484,9 @@ class _Window(PandasObject, SelectionMixin):
                     _use_window(self.min_periods, apply_window),
                     len(values) + offset,
                 )
+                func = partial(
+                    func, begin=start, end=end, minimum_periods=minimum_periods
+                )
 
             else:
                 # if we have a string function name, wrap it
@@ -511,28 +502,22 @@ class _Window(PandasObject, SelectionMixin):
                         cfunc, check_minp, index_as_array, **kwargs
                     )
 
-                # calculation function
-                if center:
-                    offset = _offset(apply_window, center)
-                    additional_nans = np.array([np.NaN] * offset)
+                func = partial(
+                    func,
+                    window=apply_window,
+                    min_periods=self.min_periods,
+                    closed=self.closed,
+                )
 
-                    def calc(x):
-                        return func(
-                            np.concatenate((x, additional_nans)),
-                            apply_window,
-                            min_periods=self.min_periods,
-                            closed=self.closed,
-                        )
+            if additional_nans is not None:
 
-                else:
+                def calc(x):
+                    return func(np.concatenate((x, additional_nans)))
 
-                    def calc(x):
-                        return func(
-                            x,
-                            apply_window,
-                            min_periods=self.min_periods,
-                            closed=self.closed,
-                        )
+            else:
+
+                def calc(x):
+                    return func(x)
 
             with np.errstate(all="ignore"):
                 if values.ndim > 1:

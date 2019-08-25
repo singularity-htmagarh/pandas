@@ -3,6 +3,7 @@ Provide a generic structure to support window functions,
 similar to how we have a Groupby object.
 """
 from datetime import timedelta
+from functools import partial
 from textwrap import dedent
 from typing import Callable, List, Optional, Set, Union
 import warnings
@@ -38,7 +39,9 @@ from pandas._typing import Axis, FrameOrSeries, Scalar
 from pandas.core.base import DataError, PandasObject, SelectionMixin
 import pandas.core.common as com
 from pandas.core.index import Index, ensure_index
+from pandas.core.window.aggregators import rolling_mean
 from pandas.core.window.common import (
+    _check_min_periods,
     _doc_template,
     _flex_binary_moment,
     _GroupByMixin,
@@ -48,7 +51,11 @@ from pandas.core.window.common import (
     _use_window,
     _zsqrt,
 )
-from pandas.core.window_.indexers import BaseIndexer
+from pandas.core.window.indexers import (
+    BaseIndexer,
+    FixedWindowIndexer,
+    VariableWindowIndexer,
+)
 
 
 class _Window(PandasObject, SelectionMixin):
@@ -376,6 +383,22 @@ class _Window(PandasObject, SelectionMixin):
 
         return func
 
+    def _get_window_indexer(self, index_as_array):
+        """
+        Return an Indexer class to get the window boundaries.
+
+        Parameters
+        ----------
+        index_as_array : ndarray of the index
+
+        Returns
+        -------
+        VariableWindowIndexer or FixedWindowIndexer
+        """
+        if self.is_freq_type:
+            return VariableWindowIndexer(index=index_as_array)
+        return FixedWindowIndexer(index=index_as_array)
+
     def _apply(
         self,
         func: Union[str, Callable],
@@ -413,7 +436,7 @@ class _Window(PandasObject, SelectionMixin):
             check_minp = _use_window
 
         if window is None:
-            window = self._get_window(**kwargs)
+            apply_window = self._get_window(**kwargs)  # type: int
 
         blocks, obj = self._create_blocks()
         block_list = list(blocks)
@@ -437,36 +460,64 @@ class _Window(PandasObject, SelectionMixin):
                 results.append(values.copy())
                 continue
 
-            # if we have a string function name, wrap it
-            if isinstance(func, str):
-                cfunc = getattr(libwindow, func, None)
-                if cfunc is None:
-                    raise ValueError(
-                        "we do not support this function "
-                        "in libwindow.{func}".format(func=func)
+            offset = 0
+            additional_nans = None
+            if center:
+                offset = _offset(apply_window, center)
+                additional_nans = np.array([np.nan] * offset)
+
+            # Temporary path for our POC
+            if name == "mean":
+
+                window_bound_indexer = self._get_window_indexer(
+                    index_as_array=index_as_array
+                )
+                start, end = window_bound_indexer.get_window_bounds(
+                    len(values) + offset,
+                    apply_window,
+                    check_minp(self.min_periods, apply_window),
+                    center,
+                    self.closed,
+                )
+                minimum_periods = _check_min_periods(
+                    apply_window,
+                    _use_window(self.min_periods, apply_window),
+                    len(values) + offset,
+                )
+                func = partial(  # type: ignore
+                    func, begin=start, end=end, minimum_periods=minimum_periods
+                )
+
+            else:
+                # if we have a string function name, wrap it
+                if isinstance(func, str):
+                    cfunc = getattr(libwindow, func, None)
+                    if cfunc is None:
+                        raise ValueError(
+                            "we do not support this function "
+                            "in libwindow.{func}".format(func=func)
+                        )
+
+                    func = self._get_roll_func(
+                        cfunc, check_minp, index_as_array, **kwargs
                     )
 
-                func = self._get_roll_func(cfunc, check_minp, index_as_array, **kwargs)
+                func = partial(  # type: ignore
+                    func,
+                    window=apply_window,
+                    min_periods=self.min_periods,
+                    closed=self.closed,
+                )
 
-            # calculation function
-            if center:
-                offset = _offset(window, center)
-                additional_nans = np.array([np.NaN] * offset)
+            if additional_nans is not None:
 
                 def calc(x):
-                    return func(
-                        np.concatenate((x, additional_nans)),
-                        window,
-                        min_periods=self.min_periods,
-                        closed=self.closed,
-                    )
+                    return func(np.concatenate((x, additional_nans)))
 
             else:
 
                 def calc(x):
-                    return func(
-                        x, window, min_periods=self.min_periods, closed=self.closed
-                    )
+                    return func(x)
 
             with np.errstate(all="ignore"):
                 if values.ndim > 1:
@@ -476,7 +527,7 @@ class _Window(PandasObject, SelectionMixin):
                     result = np.asarray(result)
 
             if center:
-                result = self._center_window(result, window)
+                result = self._center_window(result, apply_window)
 
             results.append(result)
 
@@ -1149,7 +1200,7 @@ class _Rolling_and_Expanding(_Rolling):
 
     def mean(self, *args, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
-        return self._apply("roll_mean", "mean", **kwargs)
+        return self._apply(rolling_mean, "mean", **kwargs)
 
     _shared_docs["median"] = dedent(
         """

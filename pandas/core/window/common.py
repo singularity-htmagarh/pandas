@@ -1,5 +1,6 @@
 """Common utility functions for rolling operations"""
 from collections import defaultdict
+from typing import Optional
 import warnings
 
 import numpy as np
@@ -274,3 +275,43 @@ def _prep_binary(arg1, arg2):
     Y = arg2 + 0 * arg1
 
     return X, Y
+
+
+def _check_min_periods(
+    window: int,
+    min_periods: Optional[int],
+    num_values: int,
+    floor: Optional[int] = None,
+) -> int:
+    """
+    Selects the final value of min_periods that should exist in each window.
+
+    Ensures there's at least 1 minimum period.
+
+    Parameters
+    ----------
+    window: int
+    min_periods: int or None
+    num_values: len of window
+    floor: int, optional
+        default 1
+
+    Returns
+    -------
+    minimum period
+    """
+
+    if min_periods is None:
+        min_periods = 1
+    if min_periods > window:
+        raise ValueError(
+            "min_periods (%d) must be <= " "window (%d)" % (min_periods, window)
+        )
+    elif min_periods > num_values:
+        min_periods = num_values + 1
+    elif min_periods < 0:
+        raise ValueError("min_periods must be >= 0")
+    if floor is None:
+        floor = 1
+
+    return max(min_periods, floor)

@@ -1,6 +1,7 @@
 import abc
 from typing import Optional, Sequence, Tuple, Union
 
+import numba
 import numpy as np
 
 from pandas.tseries.offsets import DateOffset
@@ -78,8 +79,9 @@ class BaseIndexer(abc.ABC):
 class FixedWindowIndexer(BaseIndexer):
     """Calculate window boundaries that have a fixed window size"""
 
+    @staticmethod
+    @numba.jit(nopython=True)
     def get_window_bounds(
-        self,
         num_values: int = 0,
         window_size: int = 0,
         min_periods: Optional[int] = None,
@@ -98,10 +100,10 @@ class FixedWindowIndexer(BaseIndexer):
         (array([0, 0, 1, 1, 2]), array([1, 2, 3, 4, 5]))
         """
         start_s = np.zeros(window_size, dtype=np.int64)
-        start_e = np.arange(1, num_values - window_size + 1, dtype=np.int64)
-        start = np.concatenate([start_s, start_e])
+        start_e = np.arange(1, num_values - window_size + 1)
+        start = np.concatenate((start_s, start_e))
 
-        end = np.arange(1, num_values + 1, dtype=np.int64)
+        end = np.arange(1, num_values + 1)
         if window_size > num_values:
             start = start[:num_values]
             end = end[:num_values]

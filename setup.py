@@ -37,6 +37,7 @@ setuptools_kwargs = {
         "python-dateutil >= 2.6.1",
         "pytz >= 2017.2",
         "numpy >= {numpy_ver}".format(numpy_ver=min_numpy_ver),
+        "numba >= 0.45.1"
     ],
     "setup_requires": ["numpy >= {numpy_ver}".format(numpy_ver=min_numpy_ver)],
     "zip_safe": False,

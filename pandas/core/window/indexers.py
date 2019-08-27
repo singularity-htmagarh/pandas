@@ -20,7 +20,7 @@ class BaseIndexer(abc.ABC):
         """
         Parameters
         ----------
-        index : , default None
+        index : ndarray[int64], default None
             pandas index to reference in the window bound calculation
 
         offset: str or DateOffset, default None

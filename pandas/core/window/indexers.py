@@ -7,6 +7,10 @@ from pandas.tseries.offsets import DateOffset
 
 BeginEnd = Tuple[np.ndarray, np.ndarray]
 
+baseindexer_spec = (
+    ('index', numba.optional(numba.int64[:])),
+)
+
 
 class BaseIndexer:
     """Base class for window bounds calculations"""
@@ -23,16 +27,11 @@ class BaseIndexer:
         index : ndarray[int64], default None
             pandas index to reference in the window bound calculation
 
-        offset: str or DateOffset, default None
-            Offset used to calcuate the window boundary
-
-        keys: np.ndarray, default None
-            Additional columns needed to calculate the window bounds
-
         """
         self.index = index
-        self.offset = offset
-        self.keys = keys
+        # TODO: How to effectively types these in Numba to run in nopython?
+        # self.offset = offset
+        # self.keys = keys
 
     def get_window_bounds(
         self,
@@ -75,12 +74,12 @@ class BaseIndexer:
         raise NotImplementedError
 
 
+@numba.jitclass(baseindexer_spec)
 class FixedWindowIndexer(BaseIndexer):
     """Calculate window boundaries that have a fixed window size"""
 
-    @staticmethod
-    @numba.jit(nopython=True)
     def get_window_bounds(
+        self,
         num_values: int = 0,
         window_size: int = 0,
         min_periods: Optional[int] = None,
@@ -109,6 +108,7 @@ class FixedWindowIndexer(BaseIndexer):
         return start, end
 
 
+@numba.jitclass(baseindexer_spec)
 class VariableWindowIndexer(BaseIndexer):
     """
     Calculate window boundaries with variable closed boundaries and index dependent

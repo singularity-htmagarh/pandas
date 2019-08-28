@@ -1,6 +1,7 @@
 from functools import partial
 from typing import Optional
 
+import numba
 import numpy as np
 
 from pandas._typing import Scalar
@@ -60,7 +61,15 @@ class BaseAggregator:
         -------
         Bool
         """
-        return np.count_nonzero(~np.isnan(values)) >= self.min_periods
+        not_null_counts = 0
+        for value in values:
+            if not np.isnan(value):
+                not_null_counts += 1
+            if not_null_counts >= self.min_periods:
+                return True
+        return False
+        # Numba doesn't like count_nonzero
+        # return np.count_nonzero(~np.isnan(values)) >= self.min_periods
 
 
 class AggKernel:
@@ -72,14 +81,15 @@ class AggKernel:
     finalize
     make_aggregator
     """
+    def __init__(self):
+        pass
 
     def finalize(self):
         """Return the final value of the aggregation."""
         raise NotImplementedError
 
-    @classmethod
     def make_aggregator(
-        cls, values: np.ndarray, minimum_periods: int
+        self, values: np.ndarray, minimum_periods: int
     ) -> BaseAggregator:
         """Return an aggregator that performs the aggregation calculation"""
         raise NotImplementedError
@@ -97,6 +107,19 @@ class UnaryAggKernel(AggKernel):
         raise NotImplementedError
 
 
+agg_type = numba.deferred_type()
+
+
+base_aggregator_spec = (
+    ('values', numba.float64[:]),
+    ('min_periods', numba.uint64),
+    ('agg', agg_type),
+    ('previous_start', numba.int64),
+    ('previous_end', numba.int64)
+)
+
+
+@numba.jitclass(base_aggregator_spec)
 class SubtractableAggregator(BaseAggregator):
     """
     Aggregator in which a current aggregated value
@@ -106,7 +129,10 @@ class SubtractableAggregator(BaseAggregator):
     def __init__(
         self, values: np.ndarray, min_periods: int, agg: UnaryAggKernel
     ) -> None:
-        super().__init__(values, min_periods)
+        # Note: Numba doesn't like inheritance
+        # super().__init__(values, min_periods)
+        self.values = values
+        self.min_periods = min_periods
         self.agg = agg
         self.previous_start = -1
         self.previous_end = -1
@@ -159,17 +185,26 @@ class Sum(UnaryAggKernel):
         self.total += other.total
         self.count += other.count
 
-    @classmethod
-    def make_aggregator(cls, values: np.ndarray, min_periods: int) -> BaseAggregator:
-        aggregator = SubtractableAggregator(values, min_periods, cls())
+    def make_aggregator(self, values: np.ndarray, min_periods: int) -> BaseAggregator:
+        aggregator = SubtractableAggregator(values, min_periods, self)
         return aggregator
 
 
+sum_spec = (
+    ('count', numba.uint64),
+    ('total', numba.float64)
+)
+
+
+@numba.jitclass(sum_spec)
 class Mean(Sum):
     def finalize(self) -> Optional[float]:  # type: ignore
         if not self.count:
             return None
         return self.total / self.count
+
+
+agg_type.define(Mean.class_type.instance_type)
 
 
 def rolling_aggregation(
@@ -180,7 +215,7 @@ def rolling_aggregation(
     kernel_class,
 ) -> np.ndarray:
     """Perform a generic rolling aggregation"""
-    aggregator = kernel_class.make_aggregator(values, minimum_periods)
+    aggregator = kernel_class().make_aggregator(values, minimum_periods)
     result = np.empty(len(begin))
     for i, (start, stop) in enumerate(zip(begin, end)):
         result[i] = aggregator.query(start, stop)

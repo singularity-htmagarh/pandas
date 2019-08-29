@@ -81,6 +81,7 @@ class AggKernel:
     finalize
     make_aggregator
     """
+
     def __init__(self):
         pass
 
@@ -111,11 +112,11 @@ agg_type = numba.deferred_type()
 
 
 base_aggregator_spec = (
-    ('values', numba.float64[:]),
-    ('min_periods', numba.uint64),
-    ('agg', agg_type),
-    ('previous_start', numba.int64),
-    ('previous_end', numba.int64)
+    ("values", numba.float64[:]),
+    ("min_periods", numba.uint64),
+    ("agg", agg_type),
+    ("previous_start", numba.int64),
+    ("previous_end", numba.int64),
 )
 
 
@@ -153,7 +154,8 @@ class SubtractableAggregator(BaseAggregator):
         self.previous_end = stop
         if self._meets_minimum_periods(self.values[start:stop]):
             return self.agg.finalize()
-        return None
+        # Numba wanted this to be None instead of None
+        return np.nan
 
 
 class Sum(UnaryAggKernel):
@@ -190,10 +192,7 @@ class Sum(UnaryAggKernel):
         return aggregator
 
 
-sum_spec = (
-    ('count', numba.uint64),
-    ('total', numba.float64)
-)
+sum_spec = (("count", numba.uint64), ("total", numba.float64))
 
 
 @numba.jitclass(sum_spec)
@@ -206,20 +205,24 @@ class Mean(Sum):
 
 agg_type.define(Mean.class_type.instance_type)
 
+aggregation_signature = (numba.float64[:], numba.int64[:], numba.int64[:], numba.int64)
 
-def rolling_aggregation(
+
+@numba.njit(aggregation_signature)
+def rolling_mean(
     values: np.ndarray,
     begin: np.ndarray,
     end: np.ndarray,
     minimum_periods: int,
-    kernel_class,
+    # kernel_class,  Don't think I can define this in the signature in nopython mode
 ) -> np.ndarray:
     """Perform a generic rolling aggregation"""
-    aggregator = kernel_class().make_aggregator(values, minimum_periods)
+    aggregator = Mean().make_aggregator(values, minimum_periods)
+    # aggregator = kernel_class().make_aggregator(values, minimum_periods)
     result = np.empty(len(begin))
     for i, (start, stop) in enumerate(zip(begin, end)):
         result[i] = aggregator.query(start, stop)
     return result
 
 
-rolling_mean = partial(rolling_aggregation, kernel_class=Mean)
+# rolling_mean = partial(rolling_aggregation, kernel_class=Mean)

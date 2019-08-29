@@ -7,9 +7,7 @@ from pandas.tseries.offsets import DateOffset
 
 BeginEnd = Tuple[np.ndarray, np.ndarray]
 
-baseindexer_spec = (
-    ('index', numba.optional(numba.int64[:])),
-)
+baseindexer_spec = (("index", numba.optional(numba.int64[:])),)
 
 
 class BaseIndexer:

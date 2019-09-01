@@ -437,6 +437,8 @@ class _Window(PandasObject, SelectionMixin):
 
         if window is None:
             apply_window = self._get_window(**kwargs)  # type: int
+        else:
+            apply_window = window
 
         blocks, obj = self._create_blocks()
         block_list = list(blocks)

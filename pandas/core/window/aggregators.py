@@ -217,7 +217,7 @@ def rolling_mean(
     # kernel_class,  Don't think I can define this in the signature in nopython mode
 ) -> np.ndarray:
     """Perform a generic rolling aggregation"""
-    aggregator = Mean().make_aggregator(values, minimum_periods)
+    # aggregator = Mean().make_aggregator(values, minimum_periods)
     # aggregator = kernel_class().make_aggregator(values, minimum_periods)
     result = np.empty(len(begin))
     previous_start = -1
@@ -244,17 +244,9 @@ def rolling_mean(
                     total += value
         previous_start = start
         previous_end = stop
-        not_null_counts = 0
         val = np.nan
-        for value in values[start:stop]:
-            if not np.isnan(value):
-                not_null_counts += 1
-            if not_null_counts >= minimum_periods:
-                if not count:
-                    val = np.nan
-                else:
-                    val = total / count
-                break
+        if count and count >= minimum_periods:
+            val = total / count
         result[i] = val
     return result
 

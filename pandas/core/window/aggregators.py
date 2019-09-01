@@ -208,7 +208,7 @@ agg_type.define(Mean.class_type.instance_type)
 aggregation_signature = (numba.float64[:], numba.int64[:], numba.int64[:], numba.int64)
 
 
-@numba.njit(aggregation_signature, nogil=True)
+@numba.njit(aggregation_signature, nogil=True, parallel=True)
 def rolling_mean(
     values: np.ndarray,
     begin: np.ndarray,

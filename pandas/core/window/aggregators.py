@@ -227,7 +227,8 @@ def rolling_mean(
     for i, (start, stop) in enumerate(zip(begin, end)):
         if previous_start == -1 and previous_end == -1:
             # First aggregation over the values
-            for value in values[start:stop]:
+            for j in numba.prange(values[start:stop].shape[0]):
+                value = values[j]
                 if not np.isnan(value):
                     count += 1
                     total += value

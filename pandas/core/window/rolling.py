@@ -39,7 +39,7 @@ from pandas._typing import Axis, FrameOrSeries, Scalar
 from pandas.core.base import DataError, PandasObject, SelectionMixin
 import pandas.core.common as com
 from pandas.core.index import Index, ensure_index
-from pandas.core.window.aggregators import rolling_mean
+from pandas.core.window.aggregators import rolling_mean_method, rolling_mean_class
 from pandas.core.window.common import (
     _check_min_periods,
     _doc_template,
@@ -1202,7 +1202,7 @@ class _Rolling_and_Expanding(_Rolling):
 
     def mean(self, *args, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
-        return self._apply(rolling_mean, "mean", **kwargs)
+        return self._apply(rolling_mean_method, "mean", **kwargs)
 
     _shared_docs["median"] = dedent(
         """

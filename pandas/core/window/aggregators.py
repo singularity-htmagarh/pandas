@@ -20,7 +20,6 @@ class BaseAggregator:
     Methods
     -------
     query
-    _meets_minimum_periods
     """
 
     def __init__(self, values: np.ndarray, min_periods: int) -> None:
@@ -46,30 +45,6 @@ class BaseAggregator:
             A scalar value that is the result of the aggregation.
         """
         raise NotImplementedError
-
-    def _meets_minimum_periods(self, min_periods, values: np.ndarray) -> bool:
-        """
-        Checks that the passed values contains more non-NaN values
-        than min_periods.
-
-        Parameters
-        ----------
-        values: ndarray
-            values of the current window
-
-        Returns
-        -------
-        Bool
-        """
-        not_null_counts = 0
-        for value in values:
-            if not np.isnan(value):
-                not_null_counts += 1
-            if not_null_counts >= self.min_periods:
-                return True
-        return False
-        # Numba doesn't like count_nonzero
-        # return np.count_nonzero(~np.isnan(values)) >= self.min_periods
 
 
 class AggKernel:
@@ -138,7 +113,7 @@ class SubtractableAggregator(BaseAggregator):
         self.previous_start = -1
         self.previous_end = -1
 
-    def query(self, start: int, stop: int, previous_start, previous_end) -> Optional[Scalar]:
+    def query(self, start: int, stop: int) -> Optional[Scalar]:
         """Compute a value based on changes in bounds."""
         if self.previous_start == -1 and self.previous_end == -1:
             # First aggregation over the values
@@ -152,7 +127,7 @@ class SubtractableAggregator(BaseAggregator):
                 self.agg.step(value)
         self.previous_start = start
         self.previous_end = stop
-        if self._meets_minimum_periods(self.values[start:stop]):
+        if self.agg.count >= self.min_periods:
             return self.agg.finalize()
         # Numba wanted this to be None instead of None
         return np.nan
@@ -209,7 +184,7 @@ aggregation_signature = (numba.float64[:], numba.int64[:], numba.int64[:], numba
 
 
 @numba.njit(aggregation_signature, nogil=True, parallel=True)
-def rolling_mean(
+def rolling_mean_class(
     values: np.ndarray,
     begin: np.ndarray,
     end: np.ndarray,
@@ -217,8 +192,23 @@ def rolling_mean(
     # kernel_class,  Don't think I can define this in the signature in nopython mode
 ) -> np.ndarray:
     """Perform a generic rolling aggregation"""
-    # aggregator = Mean().make_aggregator(values, minimum_periods)
+    aggregator = Mean().make_aggregator(values, minimum_periods)
     # aggregator = kernel_class().make_aggregator(values, minimum_periods)
+    result = np.empty(len(begin))
+    for i, (start, stop) in enumerate(zip(begin, end)):
+        result[i] = aggregator.query(start, stop)
+    return result
+
+
+@numba.njit(aggregation_signature, nogil=True, parallel=True)
+def rolling_mean_method(
+    values: np.ndarray,
+    begin: np.ndarray,
+    end: np.ndarray,
+    minimum_periods: int,
+    # kernel_class,  Don't think I can define this in the signature in nopython mode
+) -> np.ndarray:
+    """Perform a generic rolling aggregation"""
     result = np.empty(len(begin))
     previous_start = -1
     previous_end = -1

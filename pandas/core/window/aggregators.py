@@ -47,7 +47,7 @@ class BaseAggregator:
         """
         raise NotImplementedError
 
-    def _meets_minimum_periods(self, values: np.ndarray) -> bool:
+    def _meets_minimum_periods(self, min_periods, values: np.ndarray) -> bool:
         """
         Checks that the passed values contains more non-NaN values
         than min_periods.
@@ -138,7 +138,7 @@ class SubtractableAggregator(BaseAggregator):
         self.previous_start = -1
         self.previous_end = -1
 
-    def query(self, start: int, stop: int) -> Optional[Scalar]:
+    def query(self, start: int, stop: int, previous_start, previous_end) -> Optional[Scalar]:
         """Compute a value based on changes in bounds."""
         if self.previous_start == -1 and self.previous_end == -1:
             # First aggregation over the values
@@ -220,8 +220,41 @@ def rolling_mean(
     aggregator = Mean().make_aggregator(values, minimum_periods)
     # aggregator = kernel_class().make_aggregator(values, minimum_periods)
     result = np.empty(len(begin))
+    previous_start = -1
+    previous_end = -1
+    count = 0
+    total = 0
     for i, (start, stop) in enumerate(zip(begin, end)):
-        result[i] = aggregator.query(start, stop)
+        if previous_start == -1 and previous_end == -1:
+            # First aggregation over the values
+            for value in values[start:stop]:
+                if not np.isnan(value):
+                    count += 1
+                    total += value
+        else:
+            # Subsequent aggregations are calculated based on prior values
+            for value in values[previous_start : start]:
+                if not np.isnan(value):
+                    count -= 1
+                    total -= value
+            for value in values[previous_end : stop]:
+                if not np.isnan(value):
+                    count += 1
+                    total += value
+        previous_start = start
+        previous_end = stop
+        not_null_counts = 0
+        val = np.nan
+        for value in values[start:stop]:
+            if not np.isnan(value):
+                not_null_counts += 1
+            if not_null_counts >= minimum_periods:
+                if not count:
+                    val = np.nan
+                else:
+                    val = total / count
+                break
+        result[i] = val
     return result
 
 

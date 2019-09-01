@@ -100,9 +100,8 @@ class FixedWindowIndexer(BaseIndexer):
         start = np.concatenate((start_s, start_e))
 
         end = np.arange(1, num_values + 1)
-        if window_size > num_values:
-            start = start[:num_values]
-            end = end[:num_values]
+        start = start[:num_values]
+        end = end[:num_values]
         return start, end
 
 

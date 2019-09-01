@@ -72,12 +72,12 @@ class BaseIndexer:
         raise NotImplementedError
 
 
-@numba.jitclass(baseindexer_spec)
 class FixedWindowIndexer(BaseIndexer):
     """Calculate window boundaries that have a fixed window size"""
 
+    @staticmethod
+    @numba.njit(nogil=True, parallel=True)
     def get_window_bounds(
-        self,
         num_values: int = 0,
         window_size: int = 0,
         min_periods: Optional[int] = None,

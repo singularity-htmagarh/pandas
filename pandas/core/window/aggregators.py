@@ -139,20 +139,26 @@ class Sum(UnaryAggKernel):
         self.total = 0
 
     def step(self, value) -> None:
+        count = 0
         if not np.isnan(value):
-            self.count += 1
-            self.total += value
+            count = 1
+        else:
+            value = 0
+        self.count += count
+        self.total += value
 
     def invert(self, value) -> None:
         """Used only in subtractable kernels."""
+        count = 0
         if not np.isnan(value):
-            self.count -= 1
-            self.total -= value
+            count = 1
+        else:
+            value = 0
+        self.count -= count
+        self.total -= value
 
-    def finalize(self) -> Optional[int]:
-        if not self.count:
-            return None
-        return self.total
+    def finalize(self) -> Optional[float]:
+        return self.total if self.count else np.nan
 
     def combine(self, other) -> None:
         """
@@ -172,10 +178,8 @@ sum_spec = (("count", numba.uint64), ("total", numba.float64))
 
 @numba.jitclass(sum_spec)
 class Mean(Sum):
-    def finalize(self) -> Optional[float]:  # type: ignore
-        if not self.count:
-            return None
-        return self.total / self.count
+    def finalize(self) -> Optional[float]:
+        return self.total / self.count if self.count else np.nan
 
 
 agg_type.define(Mean.class_type.instance_type)

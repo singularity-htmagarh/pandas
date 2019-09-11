@@ -163,7 +163,7 @@ Indexing
 ^^^^^^^^
 
 - Bug in assignment using a reverse slicer (:issue:`26939`)
--
+- Bug in reindexing a :meth:`PeriodIndex` with another type of index that contained a `Period` (:issue:`28323`) (:issue:`28337`)
 
 Missing
 ^^^^^^^
@@ -183,6 +183,7 @@ I/O
 - :meth:`read_csv` now accepts binary mode file buffers when using the Python csv engine (:issue:`23779`)
 - Bug in :meth:`DataFrame.to_json` where using a Tuple as a column or index value and using ``orient="columns"`` or ``orient="index"`` would produce invalid JSON (:issue:`20500`)
 - Improve infinity parsing. :meth:`read_csv` now interprets ``Infinity``, ``+Infinity``, ``-Infinity`` as floating point values (:issue:`10065`)
+- Bug in :meth:`DataFrame.to_csv` where values were truncated when the length of ``na_rep`` was shorter than the text input data. (:issue:`25099`)
 
 Plotting
 ^^^^^^^^
@@ -205,7 +206,7 @@ Groupby/resample/rolling
 Reshaping
 ^^^^^^^^^
 
--
+- Bug in :meth:`DataFrame.stack` not handling non-unique indexes correctly when creating MultiIndex (:issue: `28301`)
 -
 
 Sparse
@@ -232,7 +233,7 @@ Other
 - Trying to set the ``display.precision``, ``display.max_rows`` or ``display.max_columns`` using :meth:`set_option` to anything but a ``None`` or a positive int will raise a ``ValueError`` (:issue:`23348`)
 - Using :meth:`DataFrame.replace` with overlapping keys in a nested dictionary will no longer raise, now matching the behavior of a flat dictionary (:issue:`27660`)
 - :meth:`DataFrame.to_csv` and :meth:`Series.to_csv` now support dicts as ``compression`` argument with key ``'method'`` being the compression method and others as additional compression options when the compression method is ``'zip'``. (:issue:`26023`)
-
+-
 
 .. _whatsnew_1000.contributors:
 

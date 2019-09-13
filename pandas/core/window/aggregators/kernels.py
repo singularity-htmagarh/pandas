@@ -1,6 +1,11 @@
 """
 Implementation of the rolling aggregations using jitclasses.
-This implementation is not currently utilized because of inherent performance penalties.
+
+Some current difficulties as of numba 0.45.1:
+
+1) jitclasses don't support inheritance, i.e. a base jitclass cannot be subclassed.
+
+2) This implementation is not currently utilized because of inherent performance penalties.
 See https://github.com/numba/numba/issues/4522
 """
 

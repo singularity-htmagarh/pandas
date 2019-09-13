@@ -198,7 +198,7 @@ aggregation_signature = (numba.float64[:], numba.int64[:], numba.int64[:], numba
 
 
 @numba.njit(aggregation_signature, nogil=True, parallel=True)
-def rolling_mean_class(
+def rolling_mean(
     values: np.ndarray,
     begin: np.ndarray,
     end: np.ndarray,

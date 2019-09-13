@@ -1,3 +1,9 @@
+"""
+Implementation of the rolling aggregations using jitclasses.
+This implementation is not currently utilized because of inherent performance penalties.
+See https://github.com/numba/numba/issues/4522
+"""
+
 from typing import Optional
 
 import numba

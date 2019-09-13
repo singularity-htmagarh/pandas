@@ -1,3 +1,9 @@
+"""
+Implementation of the rolling aggregations using njit methods.
+This implementation mimics what we currently do in cython except the calculation of window
+bounds is independent of the aggregation routine.
+"""
+
 import numba
 import numpy as np
 

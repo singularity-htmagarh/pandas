@@ -1,4 +1,3 @@
-from functools import partial
 from typing import Optional
 
 import numba
@@ -202,47 +201,3 @@ def rolling_mean_class(
     for i, (start, stop) in enumerate(zip(begin, end)):
         result[i] = aggregator.query(start, stop)
     return result
-
-
-@numba.njit(aggregation_signature, nogil=True, parallel=True)
-def rolling_mean_method(
-    values: np.ndarray,
-    begin: np.ndarray,
-    end: np.ndarray,
-    minimum_periods: int,
-    # kernel_class,  Don't think I can define this in the signature in nopython mode
-) -> np.ndarray:
-    """Perform a generic rolling aggregation"""
-    result = np.empty(len(begin))
-    previous_start = -1
-    previous_end = -1
-    count = 0
-    total = 0
-    for i, (start, stop) in enumerate(zip(begin, end)):
-        if previous_start == -1 and previous_end == -1:
-            # First aggregation over the values
-            for j in numba.prange(values[start:stop].shape[0]):
-                value = values[j]
-                if not np.isnan(value):
-                    count += 1
-                    total += value
-        else:
-            # Subsequent aggregations are calculated based on prior values
-            for value in values[previous_start : start]:
-                if not np.isnan(value):
-                    count -= 1
-                    total -= value
-            for value in values[previous_end : stop]:
-                if not np.isnan(value):
-                    count += 1
-                    total += value
-        previous_start = start
-        previous_end = stop
-        val = np.nan
-        if count and count >= minimum_periods:
-            val = total / count
-        result[i] = val
-    return result
-
-
-# rolling_mean = partial(rolling_aggregation, kernel_class=Mean)

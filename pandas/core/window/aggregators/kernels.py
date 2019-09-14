@@ -5,7 +5,8 @@ Some current difficulties as of numba 0.45.1:
 
 1) jitclasses don't support inheritance, i.e. a base jitclass cannot be subclassed.
 
-2) This implementation is not currently utilized because of inherent performance penalties.
+2) This implementation is not currently utilized because of
+   inherent performance penalties.
 See https://github.com/numba/numba/issues/4522
 """
 
@@ -112,9 +113,7 @@ class SubtractableAggregator(BaseAggregator):
     is offset from a prior aggregated value.
     """
 
-    def __init__(
-        self, values: np.ndarray, min_periods: int, agg: UnaryAggKernel
-    ) -> None:
+    def __init__(self, values: np.ndarray, min_periods: int, agg) -> None:
         # Note: Numba doesn't like inheritance
         # super().__init__(values, min_periods)
         self.values = values
@@ -192,7 +191,7 @@ class Mean(Sum):
         return self.total / self.count if self.count else np.nan
 
 
-agg_type.define(Mean.class_type.instance_type)
+agg_type.define(Mean.class_type.instance_type)  # type: ignore
 
 aggregation_signature = (numba.float64[:], numba.int64[:], numba.int64[:], numba.int64)
 

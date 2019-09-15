@@ -1,4 +1,3 @@
-import abc
 from functools import partial
 from typing import Optional
 
@@ -7,7 +6,7 @@ import numpy as np
 from pandas._typing import Scalar
 
 
-class BaseAggregator(abc.ABC):
+class BaseAggregator:
     """
     Interface to return the current value of the rolling aggregation
     at the current step
@@ -20,14 +19,12 @@ class BaseAggregator(abc.ABC):
     Methods
     -------
     query
-    _meets_minimum_periods
     """
 
     def __init__(self, values: np.ndarray, min_periods: int) -> None:
         self.values = values
         self.min_periods = min_periods
 
-    @abc.abstractmethod
     def query(self, start: int, stop: int) -> Optional[Scalar]:
         """
         Computes the result of an aggregation for values that are between
@@ -46,25 +43,10 @@ class BaseAggregator(abc.ABC):
         Scalar
             A scalar value that is the result of the aggregation.
         """
-
-    def _meets_minimum_periods(self, values: np.ndarray) -> bool:
-        """
-        Checks that the passed values contains more non-NaN values
-        than min_periods.
-
-        Parameters
-        ----------
-        values: ndarray
-            values of the current window
-
-        Returns
-        -------
-        Bool
-        """
-        return np.count_nonzero(~np.isnan(values)) >= self.min_periods
+        raise NotImplementedError
 
 
-class AggKernel(abc.ABC):
+class AggKernel:
     """
     Interface that computes the aggregation value
 
@@ -74,28 +56,28 @@ class AggKernel(abc.ABC):
     make_aggregator
     """
 
-    @abc.abstractmethod
     def finalize(self):
         """Return the final value of the aggregation."""
+        raise NotImplementedError
 
     @classmethod
-    @abc.abstractmethod
     def make_aggregator(
         cls, values: np.ndarray, minimum_periods: int
     ) -> BaseAggregator:
         """Return an aggregator that performs the aggregation calculation"""
+        raise NotImplementedError
 
 
 class UnaryAggKernel(AggKernel):
     """Kernel to apply aggregations to singular inputs."""
 
-    @abc.abstractmethod
     def step(self, value) -> None:
         """Update the state of the aggregation with `value`."""
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def invert(self, value) -> None:
         """Undo the state of the aggregation with `value`."""
+        raise NotImplementedError
 
 
 class SubtractableAggregator(BaseAggregator):

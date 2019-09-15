@@ -39,7 +39,7 @@ from pandas._typing import Axis, FrameOrSeries, Scalar
 from pandas.core.base import DataError, PandasObject, SelectionMixin
 import pandas.core.common as com
 from pandas.core.index import Index, ensure_index
-from pandas.core.window.aggregators import rolling_mean
+from pandas.core.window.aggregators import methods
 from pandas.core.window.common import (
     _check_min_periods,
     _doc_template,
@@ -403,7 +403,7 @@ class _Window(PandasObject, SelectionMixin):
         self,
         func: Union[str, Callable],
         name: Optional[str] = None,
-        window: Optional[Union[int, str]] = None,
+        window: Optional[int] = None,
         center: Optional[bool] = None,
         check_minp: Optional[Callable] = None,
         **kwargs
@@ -429,6 +429,8 @@ class _Window(PandasObject, SelectionMixin):
         -------
         y : type of input
         """
+        use_numba = kwargs.pop("use_numba", None)
+
         if center is None:
             center = self.center
 
@@ -436,7 +438,7 @@ class _Window(PandasObject, SelectionMixin):
             check_minp = _use_window
 
         if window is None:
-            apply_window = self._get_window(**kwargs)  # type: int
+            window = self._get_window(**kwargs)
 
         blocks, obj = self._create_blocks()
         block_list = list(blocks)
@@ -463,26 +465,23 @@ class _Window(PandasObject, SelectionMixin):
             offset = 0
             additional_nans = None
             if center:
-                offset = _offset(apply_window, center)
+                offset = _offset(window, center)
                 additional_nans = np.array([np.nan] * offset)
 
-            # Temporary path for our POC
-            if name == "mean":
+            if use_numba:
 
                 window_bound_indexer = self._get_window_indexer(
                     index_as_array=index_as_array
                 )
                 start, end = window_bound_indexer.get_window_bounds(
                     len(values) + offset,
-                    apply_window,
-                    check_minp(self.min_periods, apply_window),
+                    window,
+                    check_minp(self.min_periods, window),
                     center,
                     self.closed,
                 )
                 minimum_periods = _check_min_periods(
-                    apply_window,
-                    _use_window(self.min_periods, apply_window),
-                    len(values) + offset,
+                    window, _use_window(self.min_periods, window), len(values) + offset
                 )
                 func = partial(  # type: ignore
                     func, begin=start, end=end, minimum_periods=minimum_periods
@@ -504,7 +503,7 @@ class _Window(PandasObject, SelectionMixin):
 
                 func = partial(  # type: ignore
                     func,
-                    window=apply_window,
+                    window=window,
                     min_periods=self.min_periods,
                     closed=self.closed,
                 )
@@ -527,7 +526,7 @@ class _Window(PandasObject, SelectionMixin):
                     result = np.asarray(result)
 
             if center:
-                result = self._center_window(result, apply_window)
+                result = self._center_window(result, window)
 
             results.append(result)
 
@@ -1200,7 +1199,8 @@ class _Rolling_and_Expanding(_Rolling):
 
     def mean(self, *args, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
-        return self._apply(rolling_mean, "mean", **kwargs)
+        kwargs["use_numba"] = True
+        return self._apply(methods.rolling_mean, "mean", **kwargs)
 
     _shared_docs["median"] = dedent(
         """

@@ -93,7 +93,6 @@ class UnaryAggKernel(AggKernel):
         """Undo the state of the aggregation with `value`."""
         raise NotImplementedError
 
-
 agg_type = numba.deferred_type()
 
 
@@ -167,7 +166,9 @@ class Sum(UnaryAggKernel):
         self.total -= value
 
     def finalize(self) -> Optional[float]:
-        return self.total if self.count else np.nan
+        if not self.count:
+            return None
+        return self.total
 
     def combine(self, other) -> None:
         """
@@ -188,10 +189,12 @@ sum_spec = (("count", numba.uint64), ("total", numba.float64))
 @numba.jitclass(sum_spec)
 class Mean(Sum):
     def finalize(self) -> Optional[float]:
-        return self.total / self.count if self.count else np.nan
-
+        if not self.count:
+            return None
+        return self.total / self.count
 
 agg_type.define(Mean.class_type.instance_type)  # type: ignore
+
 
 aggregation_signature = (numba.float64[:], numba.int64[:], numba.int64[:], numba.int64)
 

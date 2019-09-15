@@ -403,7 +403,7 @@ class _Window(PandasObject, SelectionMixin):
         self,
         func: Union[str, Callable],
         name: Optional[str] = None,
-        window: Optional[Union[int]] = None,
+        window: Optional[int] = None,
         center: Optional[bool] = None,
         check_minp: Optional[Callable] = None,
         **kwargs
@@ -429,6 +429,8 @@ class _Window(PandasObject, SelectionMixin):
         -------
         y : type of input
         """
+        use_numba = kwargs.pop("use_numba", None)
+
         if center is None:
             center = self.center
 
@@ -466,8 +468,7 @@ class _Window(PandasObject, SelectionMixin):
                 offset = _offset(window, center)
                 additional_nans = np.array([np.nan] * offset)
 
-            # Temporary path for our POC
-            if name == "mean":
+            if use_numba:
 
                 window_bound_indexer = self._get_window_indexer(
                     index_as_array=index_as_array
@@ -1198,6 +1199,7 @@ class _Rolling_and_Expanding(_Rolling):
 
     def mean(self, *args, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
+        kwargs["use_numba"] = True
         return self._apply(methods.rolling_mean, "mean", **kwargs)
 
     _shared_docs["median"] = dedent(

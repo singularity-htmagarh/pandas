@@ -1,4 +1,3 @@
-import abc
 from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -8,7 +7,7 @@ from pandas.tseries.offsets import DateOffset
 BeginEnd = Tuple[np.ndarray, np.ndarray]
 
 
-class BaseIndexer(abc.ABC):
+class BaseIndexer:
     """Base class for window bounds calculations"""
 
     def __init__(
@@ -20,7 +19,7 @@ class BaseIndexer(abc.ABC):
         """
         Parameters
         ----------
-        index : , default None
+        index : ndarray[int64], default None
             pandas index to reference in the window bound calculation
 
         offset: str or DateOffset, default None
@@ -34,7 +33,6 @@ class BaseIndexer(abc.ABC):
         self.offset = offset
         self.keys = keys
 
-    @abc.abstractmethod
     def get_window_bounds(
         self,
         num_values: int = 0,
@@ -73,6 +71,7 @@ class BaseIndexer(abc.ABC):
             A tuple of ndarray[int64]s, indicating the boundaries of each
             window
         """
+        raise NotImplementedError
 
 
 class FixedWindowIndexer(BaseIndexer):

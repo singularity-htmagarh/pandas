@@ -104,9 +104,7 @@ class SubtractableAggregator(BaseAggregator):
     is offset from a prior aggregated value.
     """
 
-    def __init__(
-        self, values: np.ndarray, min_periods: int, agg: UnaryAggKernel
-    ) -> None:
+    def __init__(self, values: np.ndarray, min_periods: int, agg) -> None:
         super().__init__(values, min_periods)
         self.agg = agg
         self.previous_start = -1
@@ -126,7 +124,7 @@ class SubtractableAggregator(BaseAggregator):
                 self.agg.step(value)
         self.previous_start = start
         self.previous_end = stop
-        if self._meets_minimum_periods(self.values[start:stop]):
+        if self.agg.count >= self.min_periods:
             return self.agg.finalize()
         return None
 
@@ -147,7 +145,7 @@ class Sum(UnaryAggKernel):
             self.count -= 1
             self.total -= value
 
-    def finalize(self) -> Optional[int]:
+    def finalize(self) -> Optional[float]:
         if not self.count:
             return None
         return self.total
@@ -167,7 +165,7 @@ class Sum(UnaryAggKernel):
 
 
 class Mean(Sum):
-    def finalize(self) -> Optional[float]:  # type: ignore
+    def finalize(self) -> Optional[float]:
         if not self.count:
             return None
         return self.total / self.count

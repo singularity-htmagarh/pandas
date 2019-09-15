@@ -231,3 +231,17 @@ class VariableWindowIndexer(BaseIndexer):
                 end[i] -= 1
 
         return start, end
+
+
+class ExpandingIndexer(BaseIndexer):
+
+    def get_window_bounds(
+        self,
+        num_values: int = 0,
+        window_size: int = 0,
+        min_periods: Optional[int] = None,
+        center: Optional[bool] = None,
+        closed: Optional[str] = None,
+        win_type: Optional[str] = None,
+    ) -> BeginEnd:
+        return np.zeros(num_values), np.arange(num_values)

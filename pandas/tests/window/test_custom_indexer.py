@@ -1,5 +1,8 @@
 from pandas import Series
 
+from pandas.core.window.indexers import ExpandingIndexer
+import pandas.util.testing as tm
+
 
 def test_custom_indexer_validates(
     dummy_custom_indexer, win_types, closed, min_periods, center
@@ -13,3 +16,10 @@ def test_custom_indexer_validates(
         min_periods=min_periods,
         closed=closed,
     )
+
+
+def test_expanding_indexer():
+    s = Series(range(10))
+    result = s.rolling(ExpandingIndexer()).sum()
+    expected = s.expanding().sum()
+    tm.assert_series_equal(result, expected)

@@ -148,23 +148,15 @@ class Sum(UnaryAggKernel):
         self.total = 0
 
     def step(self, value) -> None:
-        count = 0
         if not np.isnan(value):
-            count = 1
-        else:
-            value = 0
-        self.count += count
-        self.total += value
+            self.count += 1
+            self.total += value
 
     def invert(self, value) -> None:
         """Used only in subtractable kernels."""
-        count = 0
         if not np.isnan(value):
-            count = 1
-        else:
-            value = 0
-        self.count -= count
-        self.total -= value
+            self.count -= 1
+            self.total -= value
 
     def finalize(self) -> Optional[float]:
         if not self.count:

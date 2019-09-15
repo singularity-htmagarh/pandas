@@ -7,10 +7,8 @@ calculation of window bounds is independent of the aggregation routine.
 import numba
 import numpy as np
 
-aggregation_signature = (numba.float64[:], numba.int64[:], numba.int64[:], numba.int64)
 
-
-@numba.njit(aggregation_signature, nogil=True)
+@numba.njit(nogil=True)
 def rolling_mean(
     values: np.ndarray, begin: np.ndarray, end: np.ndarray, minimum_periods: int
 ) -> np.ndarray:

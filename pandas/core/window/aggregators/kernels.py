@@ -93,6 +93,7 @@ class UnaryAggKernel(AggKernel):
         """Undo the state of the aggregation with `value`."""
         raise NotImplementedError
 
+
 agg_type = numba.deferred_type()
 
 
@@ -192,6 +193,7 @@ class Mean(Sum):
         if not self.count:
             return None
         return self.total / self.count
+
 
 agg_type.define(Mean.class_type.instance_type)  # type: ignore
 

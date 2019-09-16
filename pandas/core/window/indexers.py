@@ -244,4 +244,12 @@ class ExpandingIndexer(BaseIndexer):
         closed: Optional[str] = None,
         win_type: Optional[str] = None,
     ) -> BeginEnd:
+        """
+        Examples
+        --------
+        >>> ExpandingIndexer().get_window_bounds(10)
+
+        (array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+         array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
+        """
         return np.zeros(num_values, dtype=np.int64), np.arange(1, num_values + 1)

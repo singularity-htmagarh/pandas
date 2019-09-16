@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
 
-from pandas import DataFrame, Index, Series, Timestamp, date_range, to_datetime
 import pandas.compat as compat
+
+from pandas import DataFrame, Index, Series, Timestamp, date_range, to_datetime
 import pandas.util.testing as tm
 
 import pandas.tseries.offsets as offsets

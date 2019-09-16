@@ -1,5 +1,4 @@
 from pandas import Series
-
 from pandas.core.window.indexers import ExpandingIndexer
 import pandas.util.testing as tm
 

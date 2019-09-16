@@ -234,6 +234,7 @@ class VariableWindowIndexer(BaseIndexer):
 
 class ExpandingIndexer(BaseIndexer):
     """Calculate expanding window bounds."""
+
     def get_window_bounds(
         self,
         num_values: int = 0,

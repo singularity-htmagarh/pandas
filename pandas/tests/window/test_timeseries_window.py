@@ -577,7 +577,11 @@ class TestRollingTS:
         expected = er.apply(lambda x: 1, raw=raw)
         tm.assert_frame_equal(result, expected)
 
-    def test_all2(self):
+    @pytest.mark.parametrize(
+        "func",
+        ["sum", "mean", "count", "median", "std", "var", "kurt", "skew", "min", "max"],
+    )
+    def test_all2(self, func):
 
         # more sophisticated comparison of integer vs.
         # time-based windowing
@@ -589,36 +593,21 @@ class TestRollingTS:
 
         r = dft.rolling(window="5H")
 
-        for f in [
-            "sum",
-            "mean",
-            "count",
-            "median",
-            "std",
-            "var",
-            "kurt",
-            "skew",
-            "min",
-            "max",
-        ]:
+        result = getattr(r, func)()
 
-            result = getattr(r, f)()
+        # we need to roll the days separately
+        # to compare with a time-based roll
+        # finally groupby-apply will return a multi-index
+        # so we need to drop the day
+        def agg_by_day(x):
+            x = x.between_time("09:00", "16:00")
+            return getattr(x.rolling(5, min_periods=1), func)()
 
-            # we need to roll the days separately
-            # to compare with a time-based roll
-            # finally groupby-apply will return a multi-index
-            # so we need to drop the day
-            def agg_by_day(x):
-                x = x.between_time("09:00", "16:00")
-                return getattr(x.rolling(5, min_periods=1), f)()
+        expected = (
+            df.groupby(df.index.day).apply(agg_by_day).reset_index(level=0, drop=True)
+        )
 
-            expected = (
-                df.groupby(df.index.day)
-                .apply(agg_by_day)
-                .reset_index(level=0, drop=True)
-            )
-
-            tm.assert_frame_equal(result, expected)
+        tm.assert_frame_equal(result, expected)
 
     def test_groupby_monotonic(self):
 

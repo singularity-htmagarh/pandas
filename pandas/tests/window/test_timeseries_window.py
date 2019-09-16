@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from pandas import DataFrame, Index, Series, Timestamp, date_range, to_datetime
+import pandas.compat as compat
 import pandas.util.testing as tm
 
 import pandas.tseries.offsets as offsets
@@ -579,7 +580,23 @@ class TestRollingTS:
 
     @pytest.mark.parametrize(
         "func",
-        ["sum", "mean", "count", "median", "std", "var", "kurt", "skew", "min", "max"],
+        [
+            "sum",
+            pytest.param(
+                "mean",
+                marks=pytest.mark.skipif(
+                    compat.is_platform_32bit(), reason="Numba fails here for 32 bit"
+                ),
+            ),
+            "count",
+            "median",
+            "std",
+            "var",
+            "kurt",
+            "skew",
+            "min",
+            "max",
+        ],
     )
     def test_all2(self, func):
 
@@ -660,6 +677,9 @@ class TestRollingTS:
         result = df2.groupby("A").rolling("4s", on="B").C.mean()
         tm.assert_series_equal(result, expected)
 
+    @pytest.mark.skipif(
+        compat.is_platform_32bit(), reason="Numba fails here for 32 bit"
+    )
     def test_rolling_cov_offset(self):
         # GH16058
 

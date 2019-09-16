@@ -20,6 +20,6 @@ def test_custom_indexer_validates(
 
 def test_expanding_indexer():
     s = Series(range(10))
-    result = s.rolling(ExpandingIndexer()).sum()
-    expected = s.expanding().sum()
+    result = s.rolling(ExpandingIndexer()).mean()
+    expected = s.expanding().mean()
     tm.assert_series_equal(result, expected)

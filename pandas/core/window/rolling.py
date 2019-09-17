@@ -395,6 +395,8 @@ class _Window(PandasObject, SelectionMixin):
         -------
         VariableWindowIndexer or FixedWindowIndexer
         """
+        if isinstance(self.window, BaseIndexer):
+            return self.window
         if self.is_freq_type:
             return VariableWindowIndexer(index=index_as_array)
         return FixedWindowIndexer(index=index_as_array)
@@ -480,9 +482,16 @@ class _Window(PandasObject, SelectionMixin):
                     center,
                     self.closed,
                 )
-                minimum_periods = _check_min_periods(
-                    window, _use_window(self.min_periods, window), len(values) + offset
-                )
+                if not isinstance(window, BaseIndexer):
+                    minimum_periods = _check_min_periods(
+                        window,
+                        _use_window(self.min_periods, window),
+                        len(values) + offset,
+                    )
+                else:
+                    minimum_periods = _check_min_periods(
+                        self.min_periods or 1, self.min_periods, len(values) + offset
+                    )
                 func = partial(  # type: ignore
                     func, begin=start, end=end, minimum_periods=minimum_periods
                 )

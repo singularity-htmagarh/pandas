@@ -230,3 +230,26 @@ class VariableWindowIndexer(BaseIndexer):
                 end[i] -= 1
 
         return start, end
+
+
+class ExpandingIndexer(BaseIndexer):
+    """Calculate expanding window bounds."""
+
+    def get_window_bounds(
+        self,
+        num_values: int = 0,
+        window_size: int = 0,
+        min_periods: Optional[int] = None,
+        center: Optional[bool] = None,
+        closed: Optional[str] = None,
+        win_type: Optional[str] = None,
+    ) -> BeginEnd:
+        """
+        Examples
+        --------
+        >>> ExpandingIndexer().get_window_bounds(10)
+
+        (array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+         array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
+        """
+        return np.zeros(num_values, dtype=np.int64), np.arange(1, num_values + 1)

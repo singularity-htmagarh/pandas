@@ -1,10 +1,13 @@
 from typing import Optional, Sequence, Tuple, Union
 
+import numba
 import numpy as np
 
 from pandas.tseries.offsets import DateOffset
 
 BeginEnd = Tuple[np.ndarray, np.ndarray]
+
+baseindexer_spec = (("index", numba.optional(numba.int64[:])),)
 
 
 class BaseIndexer:
@@ -22,16 +25,11 @@ class BaseIndexer:
         index : ndarray[int64], default None
             pandas index to reference in the window bound calculation
 
-        offset: str or DateOffset, default None
-            Offset used to calcuate the window boundary
-
-        keys: np.ndarray, default None
-            Additional columns needed to calculate the window bounds
-
         """
         self.index = index
-        self.offset = offset
-        self.keys = keys
+        # TODO: How to effectively types these in Numba to run in nopython?
+        # self.offset = offset
+        # self.keys = keys
 
     def get_window_bounds(
         self,
@@ -74,6 +72,7 @@ class BaseIndexer:
         raise NotImplementedError
 
 
+@numba.jitclass(baseindexer_spec)
 class FixedWindowIndexer(BaseIndexer):
     """Calculate window boundaries that have a fixed window size"""
 
@@ -97,16 +96,16 @@ class FixedWindowIndexer(BaseIndexer):
         (array([0, 0, 1, 1, 2]), array([1, 2, 3, 4, 5]))
         """
         start_s = np.zeros(window_size, dtype=np.int64)
-        start_e = np.arange(1, num_values - window_size + 1, dtype=np.int64)
-        start = np.concatenate([start_s, start_e])
+        start_e = np.arange(1, num_values - window_size + 1)
+        start = np.concatenate((start_s, start_e))
 
-        end = np.arange(1, num_values + 1, dtype=np.int64)
-        if window_size > num_values:
-            start = start[:num_values]
-            end = end[:num_values]
+        end = np.arange(1, num_values + 1)
+        start = start[:num_values]
+        end = end[:num_values]
         return start, end
 
 
+@numba.jitclass(baseindexer_spec)
 class VariableWindowIndexer(BaseIndexer):
     """
     Calculate window boundaries with variable closed boundaries and index dependent

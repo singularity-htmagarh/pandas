@@ -1,6 +1,18 @@
-from functools import partial
+"""
+Implementation of the rolling aggregations using jitclasses.
+
+Some current difficulties as of numba 0.45.1:
+
+1) jitclasses don't support inheritance, i.e. a base jitclass cannot be subclassed.
+
+2) This implementation is not currently utilized because of
+   inherent performance penalties.
+See https://github.com/numba/numba/issues/4522
+"""
+
 from typing import Optional
 
+import numba
 import numpy as np
 
 from pandas._typing import Scalar
@@ -56,13 +68,15 @@ class AggKernel:
     make_aggregator
     """
 
+    def __init__(self):
+        pass
+
     def finalize(self):
         """Return the final value of the aggregation."""
         raise NotImplementedError
 
-    @classmethod
     def make_aggregator(
-        cls, values: np.ndarray, minimum_periods: int
+        self, values: np.ndarray, minimum_periods: int
     ) -> BaseAggregator:
         """Return an aggregator that performs the aggregation calculation"""
         raise NotImplementedError
@@ -80,6 +94,19 @@ class UnaryAggKernel(AggKernel):
         raise NotImplementedError
 
 
+agg_type = numba.deferred_type()
+
+
+base_aggregator_spec = (
+    ("values", numba.float64[:]),
+    ("min_periods", numba.uint64),
+    ("agg", agg_type),
+    ("previous_start", numba.int64),
+    ("previous_end", numba.int64),
+)
+
+
+@numba.jitclass(base_aggregator_spec)
 class SubtractableAggregator(BaseAggregator):
     """
     Aggregator in which a current aggregated value
@@ -87,7 +114,10 @@ class SubtractableAggregator(BaseAggregator):
     """
 
     def __init__(self, values: np.ndarray, min_periods: int, agg) -> None:
-        super().__init__(values, min_periods)
+        # Note: Numba doesn't like inheritance
+        # super().__init__(values, min_periods)
+        self.values = values
+        self.min_periods = min_periods
         self.agg = agg
         self.previous_start = -1
         self.previous_end = -1
@@ -108,7 +138,8 @@ class SubtractableAggregator(BaseAggregator):
         self.previous_end = stop
         if self.agg.count >= self.min_periods:
             return self.agg.finalize()
-        return None
+        # Numba wanted this to be None instead of None
+        return np.nan
 
 
 class Sum(UnaryAggKernel):
@@ -140,12 +171,15 @@ class Sum(UnaryAggKernel):
         self.total += other.total
         self.count += other.count
 
-    @classmethod
-    def make_aggregator(cls, values: np.ndarray, min_periods: int) -> BaseAggregator:
-        aggregator = SubtractableAggregator(values, min_periods, cls())
+    def make_aggregator(self, values: np.ndarray, min_periods: int) -> BaseAggregator:
+        aggregator = SubtractableAggregator(values, min_periods, self)
         return aggregator
 
 
+sum_spec = (("count", numba.uint64), ("total", numba.float64))
+
+
+@numba.jitclass(sum_spec)
 class Mean(Sum):
     def finalize(self) -> Optional[float]:
         if not self.count:
@@ -153,19 +187,24 @@ class Mean(Sum):
         return self.total / self.count
 
 
-def rolling_aggregation(
+agg_type.define(Mean.class_type.instance_type)  # type: ignore
+
+
+aggregation_signature = (numba.float64[:], numba.int64[:], numba.int64[:], numba.int64)
+
+
+@numba.njit(aggregation_signature, nogil=True, parallel=True)
+def rolling_mean(
     values: np.ndarray,
     begin: np.ndarray,
     end: np.ndarray,
     minimum_periods: int,
-    kernel_class,
+    # kernel_class,  Don't think I can define this in the signature in nopython mode
 ) -> np.ndarray:
     """Perform a generic rolling aggregation"""
-    aggregator = kernel_class.make_aggregator(values, minimum_periods)
+    aggregator = Mean().make_aggregator(values, minimum_periods)
+    # aggregator = kernel_class().make_aggregator(values, minimum_periods)
     result = np.empty(len(begin))
     for i, (start, stop) in enumerate(zip(begin, end)):
         result[i] = aggregator.query(start, stop)
     return result
-
-
-rolling_mean = partial(rolling_aggregation, kernel_class=Mean)

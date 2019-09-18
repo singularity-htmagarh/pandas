@@ -8,6 +8,7 @@ from textwrap import dedent
 from typing import Callable, List, Optional, Set, Union
 import warnings
 
+import numba
 import numpy as np
 
 import pandas._libs.window as libwindow
@@ -1144,7 +1145,20 @@ class _Rolling_and_Expanding(_Rolling):
                 kwargs,
             )
 
-        return self._apply(f, func, args=args, kwargs=kwargs, center=False, raw=raw)
+        # Numba doesn't support kwargs in nopython mode
+        # https://github.com/numba/numba/issues/2916
+        numba_func = numba.njit(func)
+        rolling_apply = partial(methods.rolling_apply, numba_func=numba_func, args=args)
+
+        return self._apply(
+            rolling_apply,
+            func,
+            args=args,
+            kwargs=kwargs,
+            center=False,
+            raw=raw,
+            use_numba=True,
+        )
 
     def sum(self, *args, **kwargs):
         nv.validate_window_func("sum", args, kwargs)

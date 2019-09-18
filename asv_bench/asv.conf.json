@@ -52,6 +52,7 @@
         "xlwt": [],
         "odfpy": [],
         "pytest": [],
+        "numba": [],
         // If using Windows with python 2.7 and want to build using the
         // mingw toolchain (rather than MSVC), uncomment the following line.
         // "libpython": [],

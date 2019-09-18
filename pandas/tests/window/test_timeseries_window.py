@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
 
+import pandas.compat as compat
+
 from pandas import DataFrame, Index, Series, Timestamp, date_range, to_datetime
 import pandas.util.testing as tm
 
@@ -577,7 +579,27 @@ class TestRollingTS:
         expected = er.apply(lambda x: 1, raw=raw)
         tm.assert_frame_equal(result, expected)
 
-    def test_all2(self):
+    @pytest.mark.parametrize(
+        "func",
+        [
+            "sum",
+            pytest.param(
+                "mean",
+                marks=pytest.mark.skipif(
+                    compat.is_platform_32bit(), reason="Numba fails here for 32 bit"
+                ),
+            ),
+            "count",
+            "median",
+            "std",
+            "var",
+            "kurt",
+            "skew",
+            "min",
+            "max",
+        ],
+    )
+    def test_all2(self, func):
 
         # more sophisticated comparison of integer vs.
         # time-based windowing
@@ -589,36 +611,21 @@ class TestRollingTS:
 
         r = dft.rolling(window="5H")
 
-        for f in [
-            "sum",
-            "mean",
-            "count",
-            "median",
-            "std",
-            "var",
-            "kurt",
-            "skew",
-            "min",
-            "max",
-        ]:
+        result = getattr(r, func)()
 
-            result = getattr(r, f)()
+        # we need to roll the days separately
+        # to compare with a time-based roll
+        # finally groupby-apply will return a multi-index
+        # so we need to drop the day
+        def agg_by_day(x):
+            x = x.between_time("09:00", "16:00")
+            return getattr(x.rolling(5, min_periods=1), func)()
 
-            # we need to roll the days separately
-            # to compare with a time-based roll
-            # finally groupby-apply will return a multi-index
-            # so we need to drop the day
-            def agg_by_day(x):
-                x = x.between_time("09:00", "16:00")
-                return getattr(x.rolling(5, min_periods=1), f)()
+        expected = (
+            df.groupby(df.index.day).apply(agg_by_day).reset_index(level=0, drop=True)
+        )
 
-            expected = (
-                df.groupby(df.index.day)
-                .apply(agg_by_day)
-                .reset_index(level=0, drop=True)
-            )
-
-            tm.assert_frame_equal(result, expected)
+        tm.assert_frame_equal(result, expected)
 
     def test_groupby_monotonic(self):
 
@@ -671,6 +678,9 @@ class TestRollingTS:
         result = df2.groupby("A").rolling("4s", on="B").C.mean()
         tm.assert_series_equal(result, expected)
 
+    @pytest.mark.skipif(
+        compat.is_platform_32bit(), reason="Numba fails here for 32 bit"
+    )
     def test_rolling_cov_offset(self):
         # GH16058
 

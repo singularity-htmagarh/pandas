@@ -95,6 +95,7 @@ class _Window(PandasObject, SelectionMixin):
         self.win_freq = None
         self.axis = obj._get_axis_number(axis) if axis is not None else None
         self.validate()
+        self._apply_func_cache = dict()
 
     @property
     def _constructor(self):
@@ -493,7 +494,7 @@ class _Window(PandasObject, SelectionMixin):
                     minimum_periods = _check_min_periods(
                         self.min_periods or 1, self.min_periods, len(values) + offset
                     )
-                func = partial(  # type: ignore
+                func_partial = partial(  # type: ignore
                     func, begin=start, end=end, minimum_periods=minimum_periods
                 )
 
@@ -511,7 +512,7 @@ class _Window(PandasObject, SelectionMixin):
                         cfunc, check_minp, index_as_array, **kwargs
                     )
 
-                func = partial(  # type: ignore
+                func_partial = partial(  # type: ignore
                     func,
                     window=window,
                     min_periods=self.min_periods,
@@ -521,12 +522,12 @@ class _Window(PandasObject, SelectionMixin):
             if additional_nans is not None:
 
                 def calc(x):
-                    return func(np.concatenate((x, additional_nans)))
+                    return func_partial(np.concatenate((x, additional_nans)))
 
             else:
 
                 def calc(x):
-                    return func(x)
+                    return func_partial(x)
 
             with np.errstate(all="ignore"):
                 if values.ndim > 1:
@@ -534,6 +535,9 @@ class _Window(PandasObject, SelectionMixin):
                 else:
                     result = calc(values)
                     result = np.asarray(result)
+
+            if use_numba:
+                self._apply_func_cache[name] = func
 
             if center:
                 result = self._center_window(result, window)
@@ -1147,8 +1151,34 @@ class _Rolling_and_Expanding(_Rolling):
 
         # Numba doesn't support kwargs in nopython mode
         # https://github.com/numba/numba/issues/2916
-        numba_func = numba.njit(func)
-        rolling_apply = partial(methods.rolling_apply, numba_func=numba_func, args=args)
+        if func not in self._apply_func_cache:
+
+            def make_rolling_apply(func):
+
+                numba_func = numba.njit(func)
+
+                @numba.njit
+                def roll_apply(
+                    values: np.ndarray,
+                    begin: np.ndarray,
+                    end: np.ndarray,
+                    minimum_periods: int,
+                ):
+                    result = np.empty(len(begin))
+                    for i, (start, stop) in enumerate(zip(begin, end)):
+                        window = values[start:stop]
+                        count_nan = np.sum(np.isnan(window))
+                        if len(window) - count_nan >= minimum_periods:
+                            result[i] = numba_func(window, *args)
+                        else:
+                            result[i] = np.nan
+                    return result
+
+                return roll_apply
+
+            rolling_apply = make_rolling_apply(func)
+        else:
+            rolling_apply = self._apply_func_cache[func]
 
         return self._apply(
             rolling_apply,

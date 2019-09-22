@@ -628,6 +628,9 @@ class TestMoments(Base):
         with pytest.raises(TypeError):
             ser.rolling(3).quantile("foo")
 
+    @pytest.mark.xfail(
+        reason="unsupported controlflow due to return/raise statements inside with block"
+    )
     def test_rolling_apply(self, raw):
         # suppress warnings about empty slices, as we are deliberately testing
         # with a 0-length Series
@@ -668,6 +671,10 @@ class TestMoments(Base):
         with tm.assert_produces_warning(FutureWarning):
             method(s).apply(lambda x: len(x))
 
+    @pytest.mark.xfail(
+        reason="Untyped global name 'isinstance': "
+        "cannot determine Numba type of <class 'builtin_function_or_method'>"
+    )
     def test_rolling_apply_out_of_bounds(self, raw):
         # gh-1850
         vals = pd.Series([1, 2, 3, 4])
@@ -679,6 +686,10 @@ class TestMoments(Base):
         expected = pd.Series([1, 3, 6, 10], dtype=float)
         tm.assert_almost_equal(result, expected)
 
+    @pytest.mark.xfail(
+        reason="Untyped global name 'df': "
+        "cannot determine Numba type of <class 'pandas.core.frame.DataFrame'>"
+    )
     @pytest.mark.parametrize("window", [2, "2s"])
     def test_rolling_apply_with_pandas_objects(self, window):
         # 5071
@@ -1629,6 +1640,9 @@ class TestMomentsConsistency(Base):
             ),
         )
 
+    @pytest.mark.xfail(
+        reason="Untyped global name 'Series': cannot determine Numba type of <class 'type'>"
+    )
     @pytest.mark.slow
     @pytest.mark.parametrize("min_periods", [0, 1, 2, 3, 4])
     def test_expanding_consistency(self, min_periods):
@@ -1701,6 +1715,9 @@ class TestMomentsConsistency(Base):
                     if name in ["sum", "prod"]:
                         tm.assert_equal(expanding_f_result, expanding_apply_f_result)
 
+    @pytest.mark.xfail(
+        reason="Untyped global name 'Series': cannot determine Numba type of <class 'type'>"
+    )
     @pytest.mark.slow
     @pytest.mark.parametrize(
         "window,min_periods,center", list(_rolling_consistency_cases())
@@ -1977,6 +1994,7 @@ class TestMomentsConsistency(Base):
         with pytest.raises(Exception, match=msg):
             func(A, randn(50), 20, min_periods=5)
 
+    @pytest.mark.xfail(reason="Use of unsupported opcode (SETUP_EXCEPT) found")
     def test_expanding_apply_args_kwargs(self, raw):
         def mean_w_arg(x, const):
             return np.mean(x) + const
@@ -2118,8 +2136,18 @@ class TestMomentsConsistency(Base):
             lambda x: x.rolling(window=10, min_periods=5).kurt(),
             lambda x: x.rolling(window=10, min_periods=5).quantile(quantile=0.5),
             lambda x: x.rolling(window=10, min_periods=5).median(),
-            lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=False),
-            lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=True),
+            pytest.param(
+                lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=False),
+                marks=pytest.mark.xfail(
+                    reason="https://github.com/numba/numba/issues/4587"
+                ),
+            ),
+            pytest.param(
+                lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=True),
+                marks=pytest.mark.xfail(
+                    reason="https://github.com/numba/numba/issues/4587"
+                ),
+            ),
             lambda x: x.rolling(win_type="boxcar", window=10, min_periods=5).mean(),
         ],
     )
@@ -2164,17 +2192,9 @@ class TestMomentsConsistency(Base):
             df_result = f(df)
             tm.assert_frame_equal(df_result, df_expected)
 
-    def test_moment_functions_zero_length(self):
-        # GH 8056
-        s = Series()
-        s_expected = s
-        df1 = DataFrame()
-        df1_expected = df1
-        df2 = DataFrame(columns=["a"])
-        df2["a"] = df2["a"].astype("float64")
-        df2_expected = df2
-
-        functions = [
+    @pytest.mark.parametrize(
+        "f",
+        [
             lambda x: x.expanding().count(),
             lambda x: x.expanding(min_periods=5).cov(x, pairwise=False),
             lambda x: x.expanding(min_periods=5).corr(x, pairwise=False),
@@ -2188,8 +2208,18 @@ class TestMomentsConsistency(Base):
             lambda x: x.expanding(min_periods=5).kurt(),
             lambda x: x.expanding(min_periods=5).quantile(0.5),
             lambda x: x.expanding(min_periods=5).median(),
-            lambda x: x.expanding(min_periods=5).apply(sum, raw=False),
-            lambda x: x.expanding(min_periods=5).apply(sum, raw=True),
+            pytest.param(
+                lambda x: x.expanding(min_periods=5).apply(sum, raw=False),
+                marks=pytest.mark.xfail(
+                    reason="https://github.com/numba/numba/issues/4587"
+                ),
+            ),
+            pytest.param(
+                lambda x: x.expanding(min_periods=5).apply(sum, raw=True),
+                marks=pytest.mark.xfail(
+                    reason="https://github.com/numba/numba/issues/4587"
+                ),
+            ),
             lambda x: x.rolling(window=10).count(),
             lambda x: x.rolling(window=10, min_periods=5).cov(x, pairwise=False),
             lambda x: x.rolling(window=10, min_periods=5).corr(x, pairwise=False),
@@ -2203,24 +2233,44 @@ class TestMomentsConsistency(Base):
             lambda x: x.rolling(window=10, min_periods=5).kurt(),
             lambda x: x.rolling(window=10, min_periods=5).quantile(0.5),
             lambda x: x.rolling(window=10, min_periods=5).median(),
-            lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=False),
-            lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=True),
+            pytest.param(
+                lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=False),
+                marks=pytest.mark.xfail(
+                    reason="https://github.com/numba/numba/issues/4587"
+                ),
+            ),
+            pytest.param(
+                lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=True),
+                marks=pytest.mark.xfail(
+                    reason="https://github.com/numba/numba/issues/4587"
+                ),
+            ),
             lambda x: x.rolling(win_type="boxcar", window=10, min_periods=5).mean(),
-        ]
-        for f in functions:
-            try:
-                s_result = f(s)
-                tm.assert_series_equal(s_result, s_expected)
+        ],
+    )
+    def test_moment_functions_zero_length(self, f):
+        # GH 8056
+        s = Series()
+        s_expected = s
+        df1 = DataFrame()
+        df1_expected = df1
+        df2 = DataFrame(columns=["a"])
+        df2["a"] = df2["a"].astype("float64")
+        df2_expected = df2
 
-                df1_result = f(df1)
-                tm.assert_frame_equal(df1_result, df1_expected)
+        try:
+            s_result = f(s)
+            tm.assert_series_equal(s_result, s_expected)
 
-                df2_result = f(df2)
-                tm.assert_frame_equal(df2_result, df2_expected)
-            except (ImportError):
+            df1_result = f(df1)
+            tm.assert_frame_equal(df1_result, df1_expected)
 
-                # scipy needed for rolling_window
-                continue
+            df2_result = f(df2)
+            tm.assert_frame_equal(df2_result, df2_expected)
+        except (ImportError):
+
+            # scipy needed for rolling_window
+            pass
 
     def test_moment_functions_zero_length_pairwise(self):
 

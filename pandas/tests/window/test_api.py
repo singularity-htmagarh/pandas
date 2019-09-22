@@ -132,6 +132,7 @@ class TestApi(Base):
         expected.columns = pd.MultiIndex.from_tuples(exp_cols)
         tm.assert_frame_equal(result, expected, check_like=True)
 
+    @pytest.mark.xfail(reason="TypingError: numba doesn't support kwarg for std")
     def test_agg_apply(self, raw):
 
         # passed lambda

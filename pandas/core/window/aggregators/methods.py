@@ -3,8 +3,6 @@ Implementation of the rolling aggregations using njit methods.
 This implementation mimics what we currently do in cython except the
 calculation of window bounds is independent of the aggregation routine.
 """
-from typing import Callable
-
 import numba
 import numpy as np
 
@@ -62,24 +60,4 @@ def rolling_mean(
         if count and count >= minimum_periods:
             val = total / count
         result[i] = val
-    return result
-
-
-@numba.njit(nogil=True)
-def rolling_apply(
-    values: np.ndarray,
-    begin: np.ndarray,
-    end: np.ndarray,
-    minimum_periods: int,
-    numba_func: Callable,
-    args,
-) -> np.ndarray:
-    result = np.empty(len(begin))
-    for i, (start, stop) in enumerate(zip(begin, end)):
-        window = values[start:stop]
-        count_nan = np.sum(np.isnan(window))
-        if len(window) - count_nan >= minimum_periods:
-            result[i] = numba_func(window, *args)
-        else:
-            result[i] = np.nan
     return result

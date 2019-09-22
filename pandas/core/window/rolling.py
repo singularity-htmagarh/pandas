@@ -433,7 +433,10 @@ class _Window(PandasObject, SelectionMixin):
         -------
         y : type of input
         """
-        use_numba = kwargs.pop("use_numba", None)
+        use_numba = kwargs.pop("use_numba", False)
+        if not use_numba:
+            # Odd path for groupby.rolling.apply
+            use_numba = kwargs.pop("kwargs", {}).get("use_numba", False)
 
         if center is None:
             center = self.center
@@ -1179,15 +1182,9 @@ class _Rolling_and_Expanding(_Rolling):
             rolling_apply = make_rolling_apply(func)
         else:
             rolling_apply = self._apply_func_cache[func]
-
+        kwargs["use_numba"] = True
         return self._apply(
-            rolling_apply,
-            func,
-            args=args,
-            kwargs=kwargs,
-            center=False,
-            raw=raw,
-            use_numba=True,
+            rolling_apply, func, args=args, kwargs=kwargs, center=False, raw=raw
         )
 
     def sum(self, *args, **kwargs):

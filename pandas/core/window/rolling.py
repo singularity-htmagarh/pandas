@@ -5,7 +5,7 @@ similar to how we have a Groupby object.
 from datetime import timedelta
 from functools import partial
 from textwrap import dedent
-from typing import Callable, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Set, Union
 import warnings
 
 import numba
@@ -95,7 +95,7 @@ class _Window(PandasObject, SelectionMixin):
         self.win_freq = None
         self.axis = obj._get_axis_number(axis) if axis is not None else None
         self.validate()
-        self._apply_func_cache = dict()
+        self._apply_func_cache = dict()  # type: Dict
 
     @property
     def _constructor(self):
@@ -434,9 +434,12 @@ class _Window(PandasObject, SelectionMixin):
         y : type of input
         """
         use_numba = kwargs.pop("use_numba", False)
+        floor = kwargs.pop("floor", None)
         if not use_numba:
-            # Odd path for groupby.rolling.apply
-            use_numba = kwargs.pop("kwargs", {}).get("use_numba", False)
+            # apply stores use_numba and floor in kwargs[kwargs]
+            extra_kwargs = kwargs.pop("kwargs", {})
+            use_numba = extra_kwargs.get("use_numba", False)
+            floor = extra_kwargs.get("floor", None)
 
         if center is None:
             center = self.center
@@ -492,10 +495,14 @@ class _Window(PandasObject, SelectionMixin):
                         window,
                         _use_window(self.min_periods, window),
                         len(values) + offset,
+                        floor,
                     )
                 else:
                     minimum_periods = _check_min_periods(
-                        self.min_periods or 1, self.min_periods, len(values) + offset
+                        self.min_periods or 1,
+                        self.min_periods,
+                        len(values) + offset,
+                        floor,
                     )
                 func_partial = partial(  # type: ignore
                     func, begin=start, end=end, minimum_periods=minimum_periods
@@ -1183,6 +1190,7 @@ class _Rolling_and_Expanding(_Rolling):
         else:
             rolling_apply = self._apply_func_cache[func]
         kwargs["use_numba"] = True
+        kwargs["floor"] = 0
         return self._apply(
             rolling_apply, func, args=args, kwargs=kwargs, center=False, raw=raw
         )

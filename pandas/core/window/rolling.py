@@ -1121,12 +1121,8 @@ class _Rolling_and_Expanding(_Rolling):
     )
 
     def apply(self, func, raw=None, args=(), kwargs={}):
-        from pandas import Series
 
         kwargs.pop("_level", None)
-        window = self._get_window()
-        offset = _offset(window, self.center)
-        index_as_array = self._get_index()
 
         # TODO: default is for backward compat
         # change to False in the future
@@ -1141,23 +1137,6 @@ class _Rolling_and_Expanding(_Rolling):
                 stacklevel=3,
             )
             raw = True
-
-        def f(arg, window, min_periods, closed):
-            minp = _use_window(min_periods, window)
-            if not raw:
-                arg = Series(arg, index=self.obj.index)
-            return libwindow.roll_generic(
-                arg,
-                window,
-                minp,
-                index_as_array,
-                closed,
-                offset,
-                func,
-                raw,
-                args,
-                kwargs,
-            )
 
         # Numba doesn't support kwargs in nopython mode
         # https://github.com/numba/numba/issues/2916

@@ -629,7 +629,8 @@ class TestMoments(Base):
             ser.rolling(3).quantile("foo")
 
     @pytest.mark.xfail(
-        reason="unsupported controlflow due to return/raise statements inside with block"
+        reason="unsupported controlflow due to return/raise statements "
+        "inside with block"
     )
     def test_rolling_apply(self, raw):
         # suppress warnings about empty slices, as we are deliberately testing
@@ -671,10 +672,6 @@ class TestMoments(Base):
         with tm.assert_produces_warning(FutureWarning):
             method(s).apply(lambda x: len(x))
 
-    @pytest.mark.xfail(
-        reason="Untyped global name 'isinstance': "
-        "cannot determine Numba type of <class 'builtin_function_or_method'>"
-    )
     def test_rolling_apply_out_of_bounds(self, raw):
         # gh-1850
         vals = pd.Series([1, 2, 3, 4])
@@ -1641,7 +1638,8 @@ class TestMomentsConsistency(Base):
         )
 
     @pytest.mark.xfail(
-        reason="Untyped global name 'Series': cannot determine Numba type of <class 'type'>"
+        reason="Untyped global name 'Series': cannot determine "
+        "Numba type of <class 'type'>"
     )
     @pytest.mark.slow
     @pytest.mark.parametrize("min_periods", [0, 1, 2, 3, 4])
@@ -1716,7 +1714,8 @@ class TestMomentsConsistency(Base):
                         tm.assert_equal(expanding_f_result, expanding_apply_f_result)
 
     @pytest.mark.xfail(
-        reason="Untyped global name 'Series': cannot determine Numba type of <class 'type'>"
+        reason="Untyped global name 'Series': cannot determine Numba type of "
+        "<class 'type'>"
     )
     @pytest.mark.slow
     @pytest.mark.parametrize(
@@ -2208,18 +2207,8 @@ class TestMomentsConsistency(Base):
             lambda x: x.expanding(min_periods=5).kurt(),
             lambda x: x.expanding(min_periods=5).quantile(0.5),
             lambda x: x.expanding(min_periods=5).median(),
-            pytest.param(
-                lambda x: x.expanding(min_periods=5).apply(sum, raw=False),
-                marks=pytest.mark.xfail(
-                    reason="https://github.com/numba/numba/issues/4587"
-                ),
-            ),
-            pytest.param(
-                lambda x: x.expanding(min_periods=5).apply(sum, raw=True),
-                marks=pytest.mark.xfail(
-                    reason="https://github.com/numba/numba/issues/4587"
-                ),
-            ),
+            lambda x: x.expanding(min_periods=5).apply(sum, raw=False),
+            lambda x: x.expanding(min_periods=5).apply(sum, raw=True),
             lambda x: x.rolling(window=10).count(),
             lambda x: x.rolling(window=10, min_periods=5).cov(x, pairwise=False),
             lambda x: x.rolling(window=10, min_periods=5).corr(x, pairwise=False),
@@ -2233,18 +2222,8 @@ class TestMomentsConsistency(Base):
             lambda x: x.rolling(window=10, min_periods=5).kurt(),
             lambda x: x.rolling(window=10, min_periods=5).quantile(0.5),
             lambda x: x.rolling(window=10, min_periods=5).median(),
-            pytest.param(
-                lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=False),
-                marks=pytest.mark.xfail(
-                    reason="https://github.com/numba/numba/issues/4587"
-                ),
-            ),
-            pytest.param(
-                lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=True),
-                marks=pytest.mark.xfail(
-                    reason="https://github.com/numba/numba/issues/4587"
-                ),
-            ),
+            lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=False),
+            lambda x: x.rolling(window=10, min_periods=5).apply(sum, raw=True),
             lambda x: x.rolling(win_type="boxcar", window=10, min_periods=5).mean(),
         ],
     )

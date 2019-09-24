@@ -1143,8 +1143,21 @@ class _Rolling_and_Expanding(_Rolling):
         if func not in self._apply_func_cache:
 
             def make_rolling_apply(func):
+                @numba.generated_jit(nopython=True)
+                def numba_func(window, *_args):
+                    if getattr(np, func.__name__, False):
 
-                numba_func = numba.njit(func)
+                        def impl(window, *_args):
+                            return func(window, *_args)
+
+                        return impl
+                    else:
+                        jf = numba.njit(func)
+
+                        def impl(window, *_args):
+                            return jf(window, *_args)
+
+                        return impl
 
                 @numba.njit
                 def roll_apply(

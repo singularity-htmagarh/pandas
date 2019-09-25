@@ -30,7 +30,8 @@ class Apply:
         ["DataFrame", "Series"],
         [10, 1000],
         ["int", "float"],
-        [sum, np.sum, lambda x: np.sum(x) + 5],
+        # TODO: numba doesn't support builtin.sum
+        [np.sum, lambda x: np.sum(x) + 5],
         [True, False],
     )
     param_names = ["contructor", "window", "dtype", "function", "raw"]

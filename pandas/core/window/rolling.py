@@ -1145,7 +1145,7 @@ class _Rolling_and_Expanding(_Rolling):
             def make_rolling_apply(func):
                 @numba.generated_jit(nopython=True)
                 def numba_func(window, *_args):
-                    if getattr(np, func.__name__, False):
+                    if getattr(np, func.__name__, False) is func:
 
                         def impl(window, *_args):
                             return func(window, *_args)

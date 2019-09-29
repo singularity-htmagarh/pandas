@@ -1159,7 +1159,7 @@ class _Rolling_and_Expanding(_Rolling):
 
                         return impl
 
-                @numba.njit(parallel=True)
+                @numba.njit(nogil=True, parallel=True)
                 def roll_apply(
                     values: np.ndarray,
                     begin: np.ndarray,

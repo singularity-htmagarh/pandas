@@ -5,9 +5,10 @@ similar to how we have a Groupby object.
 from datetime import timedelta
 from functools import partial
 from textwrap import dedent
-from typing import Callable, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Set, Union
 import warnings
 
+import numba
 import numpy as np
 
 import pandas._libs.window as libwindow
@@ -94,6 +95,7 @@ class _Window(PandasObject, SelectionMixin):
         self.win_freq = None
         self.axis = obj._get_axis_number(axis) if axis is not None else None
         self.validate()
+        self._apply_func_cache = dict()  # type: Dict
 
     @property
     def _constructor(self):
@@ -431,7 +433,13 @@ class _Window(PandasObject, SelectionMixin):
         -------
         y : type of input
         """
-        use_numba = kwargs.pop("use_numba", None)
+        use_numba = kwargs.pop("use_numba", False)
+        floor = kwargs.pop("floor", None)
+        if not use_numba:
+            # apply stores use_numba and floor in kwargs[kwargs]
+            extra_kwargs = kwargs.pop("kwargs", {})
+            use_numba = extra_kwargs.get("use_numba", False)
+            floor = extra_kwargs.get("floor", None)
 
         if center is None:
             center = self.center
@@ -487,12 +495,16 @@ class _Window(PandasObject, SelectionMixin):
                         window,
                         _use_window(self.min_periods, window),
                         len(values) + offset,
+                        floor,
                     )
                 else:
                     minimum_periods = _check_min_periods(
-                        self.min_periods or 1, self.min_periods, len(values) + offset
+                        self.min_periods or 1,
+                        self.min_periods,
+                        len(values) + offset,
+                        floor,
                     )
-                func = partial(  # type: ignore
+                func_partial = partial(  # type: ignore
                     func, begin=start, end=end, minimum_periods=minimum_periods
                 )
 
@@ -510,7 +522,7 @@ class _Window(PandasObject, SelectionMixin):
                         cfunc, check_minp, index_as_array, **kwargs
                     )
 
-                func = partial(  # type: ignore
+                func_partial = partial(  # type: ignore
                     func,
                     window=window,
                     min_periods=self.min_periods,
@@ -520,12 +532,12 @@ class _Window(PandasObject, SelectionMixin):
             if additional_nans is not None:
 
                 def calc(x):
-                    return func(np.concatenate((x, additional_nans)))
+                    return func_partial(np.concatenate((x, additional_nans)))
 
             else:
 
                 def calc(x):
-                    return func(x)
+                    return func_partial(x)
 
             with np.errstate(all="ignore"):
                 if values.ndim > 1:
@@ -533,6 +545,9 @@ class _Window(PandasObject, SelectionMixin):
                 else:
                     result = calc(values)
                     result = np.asarray(result)
+
+            if use_numba:
+                self._apply_func_cache[name] = func
 
             if center:
                 result = self._center_window(result, window)
@@ -1106,12 +1121,8 @@ class _Rolling_and_Expanding(_Rolling):
     )
 
     def apply(self, func, raw=None, args=(), kwargs={}):
-        from pandas import Series
 
         kwargs.pop("_level", None)
-        window = self._get_window()
-        offset = _offset(window, self.center)
-        index_as_array = self._get_index()
 
         # TODO: default is for backward compat
         # change to False in the future
@@ -1127,24 +1138,54 @@ class _Rolling_and_Expanding(_Rolling):
             )
             raw = True
 
-        def f(arg, window, min_periods, closed):
-            minp = _use_window(min_periods, window)
-            if not raw:
-                arg = Series(arg, index=self.obj.index)
-            return libwindow.roll_generic(
-                arg,
-                window,
-                minp,
-                index_as_array,
-                closed,
-                offset,
-                func,
-                raw,
-                args,
-                kwargs,
-            )
+        # Numba doesn't support kwargs in nopython mode
+        # https://github.com/numba/numba/issues/2916
+        if func not in self._apply_func_cache:
 
-        return self._apply(f, func, args=args, kwargs=kwargs, center=False, raw=raw)
+            def make_rolling_apply(func):
+                @numba.generated_jit(nopython=True)
+                def numba_func(window, *_args):
+                    if getattr(np, func.__name__, False) is func:
+
+                        def impl(window, *_args):
+                            return func(window, *_args)
+
+                        return impl
+                    else:
+                        jf = numba.njit(func)
+
+                        def impl(window, *_args):
+                            return jf(window, *_args)
+
+                        return impl
+
+                @numba.njit
+                def roll_apply(
+                    values: np.ndarray,
+                    begin: np.ndarray,
+                    end: np.ndarray,
+                    minimum_periods: int,
+                ):
+                    result = np.empty(len(begin))
+                    for i, (start, stop) in enumerate(zip(begin, end)):
+                        window = values[start:stop]
+                        count_nan = np.sum(np.isnan(window))
+                        if len(window) - count_nan >= minimum_periods:
+                            result[i] = numba_func(window, *args)
+                        else:
+                            result[i] = np.nan
+                    return result
+
+                return roll_apply
+
+            rolling_apply = make_rolling_apply(func)
+        else:
+            rolling_apply = self._apply_func_cache[func]
+        kwargs["use_numba"] = True
+        kwargs["floor"] = 0
+        return self._apply(
+            rolling_apply, func, args=args, kwargs=kwargs, center=False, raw=raw
+        )
 
     def sum(self, *args, **kwargs):
         nv.validate_window_func("sum", args, kwargs)

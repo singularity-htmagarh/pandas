@@ -79,6 +79,7 @@ class TestRolling(Base):
         expected = df.rolling("3D").sum()
         tm.assert_frame_equal(result, expected)
 
+    @pytest.mark.xfail(reason="https://github.com/numba/numba/issues/4587")
     @pytest.mark.parametrize("window", [timedelta(days=3), pd.Timedelta(days=3), "3D"])
     def test_constructor_timedelta_window_and_minperiods(self, window, raw):
         # GH 15305

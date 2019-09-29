@@ -12,6 +12,7 @@ import numba
 import numpy as np
 
 import pandas._libs.window as libwindow
+import pandas.compat as compat
 from pandas.compat._optional import import_optional_dependency
 from pandas.compat.numpy import function as nv
 from pandas.util._decorators import Appender, Substitution, cache_readonly
@@ -1159,7 +1160,7 @@ class _Rolling_and_Expanding(_Rolling):
 
                         return impl
 
-                @numba.njit(nogil=True, parallel=True)
+                @numba.njit(nogil=True, parallel=not compat.is_platform_32bit())
                 def roll_apply(
                     values: np.ndarray,
                     begin: np.ndarray,

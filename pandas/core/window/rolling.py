@@ -1159,7 +1159,7 @@ class _Rolling_and_Expanding(_Rolling):
 
                         return impl
 
-                @numba.njit
+                @numba.njit(parallel=True)
                 def roll_apply(
                     values: np.ndarray,
                     begin: np.ndarray,
@@ -1167,7 +1167,9 @@ class _Rolling_and_Expanding(_Rolling):
                     minimum_periods: int,
                 ):
                     result = np.empty(len(begin))
-                    for i, (start, stop) in enumerate(zip(begin, end)):
+                    for i in numba.prange(len(result)):
+                        start = begin[i]
+                        stop = end[i]
                         window = values[start:stop]
                         count_nan = np.sum(np.isnan(window))
                         if len(window) - count_nan >= minimum_periods:

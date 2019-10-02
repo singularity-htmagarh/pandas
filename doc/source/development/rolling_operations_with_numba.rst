@@ -52,6 +52,43 @@ for 1 million data points. (Exact benchmark setup can be found in the Appendix)
 Although peak memory has consistently increased and there is a slight performance decrease for rolling mean,
 rolling apply benchmarks have greatly increased.
 
+Window Indexer API
+------------------
+
+A ``BaseIndexer`` class is available from ``pandas/core/window/indexers.py`` for users to subclass
+to create a custom routine to calculate window boundaries. Users will need to specify a
+``get_window_bounds`` function to calculate window boundaries. Below is an example of creating an
+``ExpandingIndexer`` computes an expanding window:
+
+.. code-block:: python
+
+   from pandas import Series
+   from pandas.core.window.indexers import BaseIndexer
+
+   class ExpandingIndexer(BaseIndexer):
+       """Calculate expanding window bounds."""
+
+       def get_window_bounds(
+           self,
+           num_values: int = 0,
+           window_size: int = 0,
+           min_periods: Optional[int] = None,
+           center: Optional[bool] = None,
+           closed: Optional[str] = None,
+           win_type: Optional[str] = None,
+       ) -> BeginEnd:
+           """
+           Examples
+           --------
+           >>> ExpandingIndexer().get_window_bounds(10)
+
+           (array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+            array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
+           """
+           return np.zeros(num_values, dtype=np.int64), np.arange(1, num_values + 1)
+
+   s = Series(range(10))
+   s.rolling(ExpandingIndexer()).mean()
 
 
 Appendix

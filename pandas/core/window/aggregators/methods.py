@@ -8,7 +8,7 @@ import numpy as np
 
 
 @numba.njit(nogil=True)
-def rolling_mean(
+def rolling_mean_generic(
     values: np.ndarray, begin: np.ndarray, end: np.ndarray, minimum_periods: int
 ) -> np.ndarray:
     """
@@ -60,4 +60,62 @@ def rolling_mean(
         if count and count >= minimum_periods:
             val = total / count
         result[i] = val
+    return result
+
+
+@numba.njit(nogil=True)
+def rolling_mean_fixed_window(
+    values: np.ndarray,
+    begin: np.ndarray,
+    end: np.ndarray,
+    minimum_periods: int,
+    window: int,
+) -> np.ndarray:
+    """
+    Compute a rolling mean over values for a fixed window size.
+
+    Parameters
+    ----------
+    values : ndarray[float64]
+        values to roll over
+
+    begin : ndarray[int64]
+        starting indexers
+
+    end : ndarray[int64]
+        ending indexers
+
+    minimum_periods : int
+        minimum periods in the window to aggregate
+
+    window : int
+        window size
+
+    Returns
+    -------
+    ndarray[float64]
+    """
+    result = np.empty(len(values))
+    count = 0
+    total = 0
+    for i in range(minimum_periods - 1):
+        value = values[i]
+        if not np.isnan(value):
+            count += 1
+            total += value
+        result[i] = np.nan
+    for i in range(minimum_periods - 1, len(values)):
+        value = values[i]
+        if not np.isnan(value):
+            count += 1
+            total += value
+        if i > window - 1:
+            previous_value = values[i - window]
+            if not np.isnan(previous_value):
+                count -= 1
+                total -= previous_value
+        if count and count >= minimum_periods:
+            result[i] = total / count
+        else:
+            result[i] = np.nan
     return result

@@ -1253,7 +1253,11 @@ class _Rolling_and_Expanding(_Rolling):
     def mean(self, *args, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
         kwargs["use_numba"] = True
-        return self._apply(methods.rolling_mean, "mean", **kwargs)
+        if is_integer(self.window) and not self.is_freq_type:
+            func = partial(methods.rolling_mean_fixed_window, window=self.window)
+        else:
+            func = methods.rolling_mean_generic
+        return self._apply(func, "mean", **kwargs)
 
     _shared_docs["median"] = dedent(
         """

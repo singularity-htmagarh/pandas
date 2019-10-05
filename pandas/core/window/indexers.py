@@ -1,3 +1,8 @@
+"""
+Note: In theory, we should be using jitclasses here,
+but they are not as performant as njit.
+https://github.com/numba/numba/issues/4522
+"""
 from typing import Optional, Sequence, Tuple, Union
 
 import numba
@@ -6,8 +11,6 @@ import numpy as np
 from pandas.tseries.offsets import DateOffset
 
 BeginEnd = Tuple[np.ndarray, np.ndarray]
-
-baseindexer_spec = (("index", numba.optional(numba.int64[:])),)
 
 
 class BaseIndexer:
@@ -27,9 +30,8 @@ class BaseIndexer:
 
         """
         self.index = index
-        # TODO: How to effectively types these in Numba to run in nopython?
-        # self.offset = offset
-        # self.keys = keys
+        self.offset = offset
+        self.keys = keys
 
     def get_window_bounds(
         self,
@@ -72,12 +74,12 @@ class BaseIndexer:
         raise NotImplementedError
 
 
-@numba.jitclass(baseindexer_spec)
 class FixedWindowIndexer(BaseIndexer):
     """Calculate window boundaries that have a fixed window size"""
 
+    @staticmethod
+    @numba.njit(nogil=True)
     def get_window_bounds(
-        self,
         num_values: int = 0,
         window_size: int = 0,
         min_periods: Optional[int] = None,
@@ -105,60 +107,28 @@ class FixedWindowIndexer(BaseIndexer):
         return start, end
 
 
-@numba.jitclass(baseindexer_spec)
 class VariableWindowIndexer(BaseIndexer):
     """
     Calculate window boundaries with variable closed boundaries and index dependent
     """
 
-    def _calculate_closed_bounds(self, closed: Optional[str]) -> Tuple[bool, bool]:
-        """
-        Evaluate the left and right closed boundary behavior based on
-        the closed parameter.
-
-        Parameters
-        ----------
-        closed : str
-            One of right, left, both, or None
-
-
-        Examples
-        --------
-        >>> VariableWindowIndexer(np.arange(10))._calculate_closed_bounds(None)
-        # Right default
-        (False, True)
-        >>> VariableWindowIndexer()._calculate_closed_bounds(None)
-        # Both default
-        (True, True)
-        >>> VariableWindowIndexer()._calculate_closed_bounds('left')
-        (True, False)
-
-        Returns
-        -------
-        Tuple
-            Tuple with 2 boolean values for left and right closed behavior
-        """
-        left_closed = False
-        right_closed = False
-
-        # if windows is variable, default is 'right', otherwise default is 'both'
-        if closed is None:
-            closed = "right" if self.index is not None else "both"
-
-        if closed == "both":
-            left_closed = True
-            right_closed = True
-
-        elif closed == "right":
-            right_closed = True
-
-        elif closed == "left":
-            left_closed = True
-
-        return left_closed, right_closed
-
     def get_window_bounds(
         self,
+        num_values: int = 0,
+        window_size: int = 0,
+        min_periods: Optional[int] = None,
+        center: Optional[bool] = None,
+        closed: Optional[str] = None,
+        win_type: Optional[str] = None,
+    ):
+        return self._get_window_bounds(
+            self.index, num_values, window_size, min_periods, center, closed, win_type
+        )
+
+    @staticmethod
+    @numba.njit(nogil=True)
+    def _get_window_bounds(
+        index,
         num_values: int = 0,
         window_size: int = 0,
         min_periods: Optional[int] = None,
@@ -182,7 +152,22 @@ class VariableWindowIndexer(BaseIndexer):
         (array([0, 0, 0, 1, 2, 3, 4, 5, 6, 7]),
          array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
         """
-        left_closed, right_closed = self._calculate_closed_bounds(closed)
+        left_closed = False
+        right_closed = False
+
+        # if windows is variable, default is 'right', otherwise default is 'both'
+        if closed is None:
+            closed = "right" if index is not None else "both"
+
+        if closed == "both":
+            left_closed = True
+            right_closed = True
+
+        elif closed == "right":
+            right_closed = True
+
+        elif closed == "left":
+            left_closed = True
 
         start = np.empty(num_values, dtype=np.int64)
         start.fill(-1)
@@ -202,8 +187,8 @@ class VariableWindowIndexer(BaseIndexer):
         # start is start of slice interval (including)
         # end is end of slice interval (not including)
         for i in range(1, num_values):
-            end_bound = self.index[i]
-            start_bound = self.index[i] - window_size
+            end_bound = index[i]
+            start_bound = index[i] - window_size
 
             # left endpoint is closed
             if left_closed:
@@ -213,13 +198,13 @@ class VariableWindowIndexer(BaseIndexer):
             # within the constraint
             start[i] = i
             for j in range(start[i - 1], i):
-                if self.index[j] > start_bound:
+                if index[j] > start_bound:
                     start[i] = j
                     break
 
             # end bound is previous end
             # or current index
-            if self.index[end[i - 1]] <= end_bound:
+            if index[end[i - 1]] <= end_bound:
                 end[i] = i + 1
             else:
                 end[i] = end[i - 1]

@@ -5,19 +5,91 @@ Summary
 -------
 
 This proof of concept (POC) demonstrates using `Numba <http://numba.pydata.org/>`_ instead of ``Cython``
-in ``rolling`` applications. Namely, ``Numba`` was used to:
-
-#. Compute ``rolling.mean``
-#. Compute ``rolling.apply``
-#. Calculate offset-based or numeric-based window boundaries.
-
+to compute ``rolling.mean`` and ``rolling.apply`` without introducing any user facing API changes.
 The benefits of using ``Numba`` include:
 
 #. Performance parity or improvement over ``Cython``
 #. Eliminate shipping C-extensions
-#. Ease of debugging
+#. Ease of debugging and maintenance as pure Python code
 
-Additionally this POC includes an API that allows users to create custom window boundary calculations.
+Additionally this POC includes an new API that allows users to create custom window boundary calculations
+when using ``Numba``.
+
+Immediate Proposal
+~~~~~~~~~~~~~~~~~~
+
+In line with the `pandas roadmap <https://pandas.pydata.org/pandas-docs/stable/development/roadmap.html#numba-accelerated-operations>`_,
+we would like to introduce ``Numba`` as a required dependency for pandas in the 1.0 release
+and have the ``rolling.mean`` and ``rolling.apply`` operations use ``Numba`` instead of ``Cython`` in the release.
+
+Implementation
+--------------
+
+``rolling.mean`` and ``rolling.apply`` utilizes ``njit`` functions to separately calculate:
+
+* Window boundaries based on the window size and index
+* The actual aggregation function (mean and apply in this POC)
+
+The functional implementation mimics the current ``Cython`` implementation; however, now that
+the calculation of the window boundaries is separate from the aggregation function, we are able to
+expose a new API to users that allows them to specify how to calculate the rolling window boundaries.
+
+New Custom Window Indexer API
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Currently, window bounds are calculated automatically based on the ``DataFrame`` or ``Series`` index
+when a user passes an integer or offset in the rolling API (e.g. ``df.rolling(2)``). This POC also introduces
+a ``BaseIndexer`` class is available from ``pandas/core/window/indexers.py`` for users to subclass
+to create a custom routine to calculate window boundaries. Users will need to specify a
+``get_window_bounds`` function to calculate window boundaries.
+
+Below is an example of creating an ``ExpandingIndexer`` computes an expanding window similar to
+the current ``expanding`` API:
+
+.. code-block:: python
+
+   from typing import Optional
+
+   from pandas import Series
+   from pandas.core.window.indexers import BaseIndexer
+
+   class ExpandingIndexer(BaseIndexer):
+       """Calculate expanding window bounds."""
+
+       def get_window_bounds(
+           self,
+           num_values: int = 0,
+           window_size: int = 0,
+           min_periods: Optional[int] = None,
+           center: Optional[bool] = None,
+           closed: Optional[str] = None,
+           win_type: Optional[str] = None,
+       ):
+           """
+           Examples
+           --------
+           >>> ExpandingIndexer().get_window_bounds(10)
+
+           (array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+            array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
+           """
+           return np.zeros(num_values, dtype=np.int64), np.arange(1, num_values + 1)
+
+   >>> s = Series(range(5))
+   >>> s.rolling(ExpandingIndexer()).mean()
+   0    0.0
+   1    0.5
+   2    1.0
+   3    1.5
+   4    2.0
+   dtype: float64
+   >>> s.expanding().mean()
+   0    0.0
+   1    0.5
+   2    1.0
+   3    1.5
+   4    2.0
+   dtype: float64
 
 Performance
 -----------
@@ -49,46 +121,20 @@ for 1 million data points. (Exact benchmark setup can be found in the Appendix)
 | apply (offset window)   | 275.29 MiB       | 184.79 MiB      |
 +-------------------------+------------------+-----------------+
 
-Although peak memory has consistently increased, Numba has shown performance parity and improvement
-over Cython.
+Although peak memory has consistently increased, Numba has shown performance parity or improvement
+over ``Cython``.
 
-Window Indexer API
-------------------
+Future
+------
 
-A ``BaseIndexer`` class is available from ``pandas/core/window/indexers.py`` for users to subclass
-to create a custom routine to calculate window boundaries. Users will need to specify a
-``get_window_bounds`` function to calculate window boundaries. Below is an example of creating an
-``ExpandingIndexer`` computes an expanding window:
+Once ``Numba`` is a dependency in pandas, we believe it should be straightforward to implement the rest
+of the ``rolling`` aggregations, as well as ``ewa`` and ``expanding`` by using ``njit`` functions.
 
-.. code-block:: python
-
-   from pandas import Series
-   from pandas.core.window.indexers import BaseIndexer
-
-   class ExpandingIndexer(BaseIndexer):
-       """Calculate expanding window bounds."""
-
-       def get_window_bounds(
-           self,
-           num_values: int = 0,
-           window_size: int = 0,
-           min_periods: Optional[int] = None,
-           center: Optional[bool] = None,
-           closed: Optional[str] = None,
-           win_type: Optional[str] = None,
-       ) -> BeginEnd:
-           """
-           Examples
-           --------
-           >>> ExpandingIndexer().get_window_bounds(10)
-
-           (array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-            array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
-           """
-           return np.zeros(num_values, dtype=np.int64), np.arange(1, num_values + 1)
-
-   s = Series(range(10))
-   s.rolling(ExpandingIndexer()).mean()
+Eventually, we aim to generalize data grouping APIs (e.g. ``rolling``, ``groupby``, ``resample``) and
+the sharing of aggregation routines (``mean``, ``apply``, ``count``) through the use of ``jitclass``.
+Currently this path is not fully explored or implemented due to performance reasons, but this issue
+will be `actively developed by the Numba team <https://github.com/numba/numba/issues/4522#issuecomment-537872456>`_
+The design document for this implementation can be found in :doc:`generalized_window`
 
 
 Appendix

@@ -39,11 +39,11 @@ New Custom Window Indexer API
 
 Currently, window bounds are calculated automatically based on the ``DataFrame`` or ``Series`` index
 when a user passes an integer or offset in the rolling API (e.g. ``df.rolling(2)``). This POC also introduces
-a ``BaseIndexer`` class is available from ``pandas/core/window/indexers.py`` for users to subclass
+a ``BaseIndexer`` class in ``pandas/core/window/indexers.py`` for users to subclass
 to create a custom routine to calculate window boundaries. Users will need to specify a
 ``get_window_bounds`` function to calculate window boundaries.
 
-Below is an example of creating an ``ExpandingIndexer`` computes an expanding window similar to
+Below is an example of creating an ``ExpandingIndexer`` that computes an expanding window similar to
 the current ``expanding`` API:
 
 .. code-block:: python
@@ -94,7 +94,7 @@ the current ``expanding`` API:
 Performance
 -----------
 
-Below is table comparing the current performance difference between the Numba and Cython implementations
+Below is a table comparing the current performance difference between the Numba and Cython implementations
 for 1 million data points. (Exact benchmark setup can be found in the Appendix)
 
 +-------------------------+------------------+-----------------+
@@ -121,8 +121,9 @@ for 1 million data points. (Exact benchmark setup can be found in the Appendix)
 | apply (offset window)   | 275.29 MiB       | 184.79 MiB      |
 +-------------------------+------------------+-----------------+
 
-Although peak memory has consistently increased, Numba has shown performance parity or improvement
-over ``Cython``.
+Numba has shown performance parity or improvement over ``Cython`` although peak memory usage has
+increased. In the Appendix, we observe that around 1 billion data points Numba's peak memory usage
+is less than Cython.
 
 Future
 ------
@@ -179,6 +180,13 @@ Timings on master:
    In [13]: %memit roll_offset.apply(lambda x: np.sum(x) + 5, raw=True)
    peak memory: 184.79 MiB, increment: 0.00 MiB
 
+   In [14]: n = 1_000_000_000
+
+   In [15]: roll_fixed = pd.Series(range(n)).rolling(10)
+
+   In [16]: %memit roll_fixed.apply(lambda x: np.sum(x) + 5, raw=True)
+   peak memory: 12581.71 MiB, increment: 4860.52 MiB
+
 Timings on Numba branch:
 
 .. code-block:: ipython
@@ -217,3 +225,10 @@ Timings on Numba branch:
 
    In [13]: %memit roll_offset.apply(lambda x: np.sum(x) + 5, raw=True)
    peak memory: 275.29 MiB, increment: 1.61 MiB
+
+   In [14]: n = 1_000_000_000
+
+   In [15]: roll_fixed = pd.Series(range(n)).rolling(10)
+
+   In [16]: %memit roll_fixed.apply(lambda x: np.sum(x) + 5, raw=True)
+   peak memory: 11747.92 MiB, increment: 4056.36 MiB

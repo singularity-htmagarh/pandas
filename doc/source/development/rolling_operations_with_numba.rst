@@ -1,11 +1,12 @@
-Rolling Operations with Numba
-=============================
+Pandas Window Operations Refactor
+=================================
 
 Summary
 -------
 
 This proof of concept (POC) demonstrates using `Numba <http://numba.pydata.org/>`_ instead of ``Cython``
-to compute ``rolling.mean`` and ``rolling.apply`` without introducing any user facing API changes.
+to compute `rolling.mean <https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.core.window.Rolling.mean.html>`_
+and `rolling.apply <https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.core.window.Rolling.apply.html>`_ without introducing any user facing API changes.
 The benefits of using ``Numba`` include:
 
 #. Performance parity or improvement over ``Cython``
@@ -13,19 +14,21 @@ The benefits of using ``Numba`` include:
 #. Ease of debugging and maintenance as pure Python code
 
 Additionally this POC includes an new API that allows users to create custom window boundary calculations
-when using ``Numba``.
+when using ``Numba``. This will enable users to dynamically create windows based on conditions like
+holidays or missing periods without changing the internals of pandas.
 
-Immediate Proposal
-~~~~~~~~~~~~~~~~~~
+Immediate Proposal for pandas 1.0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In line with the `pandas roadmap <https://pandas.pydata.org/pandas-docs/stable/development/roadmap.html#numba-accelerated-operations>`_,
-we would like to introduce ``Numba`` as a required dependency for pandas in the 1.0 release
-and have the ``rolling.mean`` and ``rolling.apply`` operations use ``Numba`` instead of ``Cython`` in the release.
+we would like to introduce ``Numba`` as a required dependency and have ``rolling.mean``
+use ``Numba`` instead of ``Cython``.
 
 Implementation
 --------------
 
-``rolling.mean`` and ``rolling.apply`` utilizes ``njit`` functions to separately calculate:
+``rolling.mean`` and ``rolling.apply`` utilizes `njit <http://numba.pydata.org/numba-doc/latest/reference/jit-compilation.html#numba.jit>`_
+(``jit`` with ``nopython=True``) functions to separately calculate:
 
 * Window boundaries based on the window size and index
 * The actual aggregation function (mean and apply in this POC)
@@ -135,7 +138,8 @@ Eventually, we aim to generalize data grouping APIs (e.g. ``rolling``, ``groupby
 the sharing of aggregation routines (``mean``, ``apply``, ``count``) through the use of ``jitclass``.
 Currently this path is not fully explored or implemented due to performance reasons, but this issue
 will be `actively developed by the Numba team <https://github.com/numba/numba/issues/4522#issuecomment-537872456>`_
-The design document for this implementation can be found in :doc:`generalized_window`
+The `design document <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/doc/source/development/generalized_window.rst>`_
+describes the full implementation.
 
 
 Appendix

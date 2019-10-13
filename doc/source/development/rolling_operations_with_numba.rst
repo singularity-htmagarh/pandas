@@ -37,6 +37,9 @@ The functional implementation mimics the current ``Cython`` implementation; howe
 the calculation of the window boundaries is separate from the aggregation function, we are able to
 expose a new API to users that allows them to specify how to calculate the rolling window boundaries.
 
+The full implementation can be found on `this branch <https://github.com/twosigma/pandas/tree/feature/generalized_window_operations>`_
+of Two Sigma's pandas repo.
+
 New Custom Window Indexer API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

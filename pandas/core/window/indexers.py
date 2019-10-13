@@ -97,11 +97,12 @@ class FixedWindowIndexer(BaseIndexer):
         >>> FixedWindowIndexer().get_window_bounds(5, 2)
         (array([0, 0, 1, 1, 2]), array([1, 2, 3, 4, 5]))
         """
-        start_s = np.zeros(window_size, dtype=np.int64)
-        start_e = np.arange(1, num_values - window_size + 1)
+        start_s = np.zeros(window_size, dtype=np.int32)
+        # Numba doesn't support dtype arg in np.arange
+        start_e = np.arange(1, num_values - window_size + 1).astype(np.int32)
         start = np.concatenate((start_s, start_e))
 
-        end = np.arange(1, num_values + 1)
+        end = np.arange(1, num_values + 1).astype(np.int32)
         start = start[:num_values]
         end = end[:num_values]
         return start, end
@@ -169,10 +170,10 @@ class VariableWindowIndexer(BaseIndexer):
         elif closed == "left":
             left_closed = True
 
-        start = np.empty(num_values, dtype=np.int64)
+        start = np.empty(num_values, dtype=np.int32)
         start.fill(-1)
 
-        end = np.empty(num_values, dtype=np.int64)
+        end = np.empty(num_values, dtype=np.int32)
         end.fill(-1)
 
         start[0] = 0

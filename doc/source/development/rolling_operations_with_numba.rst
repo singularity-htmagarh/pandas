@@ -131,8 +131,11 @@ is less than Cython.
 Future
 ------
 
-Once ``Numba`` is a dependency in pandas, we believe it should be straightforward to implement the rest
-of the ``rolling`` aggregations, as well as ``ewa`` and ``expanding`` by using ``njit`` functions.
+Once ``Numba`` is a dependency in pandas, the following operations will be addressed next:
+
+#. Implement all rolling aggregations (``min``, ``max``, ``count``, etc,) in ``Numba``
+#. Implement `EWM <https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.ewm.html>`_ and `Expanding <https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.expanding.html>`_ in ``Numba``
+#. Generalize data grouping APIs (e.g. ``rolling``, ``groupby``, ``resample``) through the use of `jitclass <https://numba.pydata.org/numba-doc/dev/user/jitclass.html#numba.jitclass>`_
 
 Eventually, we aim to generalize data grouping APIs (e.g. ``rolling``, ``groupby``, ``resample``) and
 the sharing of aggregation routines (``mean``, ``apply``, ``count``) through the use of ``jitclass``.

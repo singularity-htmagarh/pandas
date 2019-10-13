@@ -115,13 +115,13 @@ for 1 million data points. (Exact benchmark setup can be found in the Appendix)
 +-------------------------+------------------+-----------------+
 | Peak Memory             | Numba            | Cython          |
 +=========================+==================+=================+
-| mean (fixed window)     | 232.32 MiB       | 161.13 MiB      |
+| mean (fixed window)     | 223.87 MiB       | 161.13 MiB      |
 +-------------------------+------------------+-----------------+
-| mean (offset window)    | 243.85 MiB       | 177.08 MiB      |
+| mean (offset window)    | 234.97 MiB       | 177.08 MiB      |
 +-------------------------+------------------+-----------------+
-| apply (fixed window)    | 264.93 MiB       | 177.12 MiB      |
+| apply (fixed window)    | 244.38 MiB       | 177.12 MiB      |
 +-------------------------+------------------+-----------------+
-| apply (offset window)   | 275.29 MiB       | 184.79 MiB      |
+| apply (offset window)   | 243.82 MiB       | 184.79 MiB      |
 +-------------------------+------------------+-----------------+
 
 Numba has shown performance parity or improvement over ``Cython`` although peak memory usage has
@@ -213,25 +213,25 @@ Timings on Numba branch:
    22.9 ms ± 2.31 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
    In [7]: %memit roll_fixed.mean()
-   peak memory: 232.32 MiB, increment: -0.00 MiB
+   peak memory: 223.87 MiB, increment: 77.30 MiB
 
    In [8]: %timeit roll_offset.mean()
    38.3 ms ± 1.52 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
    In [9]: %memit roll_offset.mean()
-   peak memory: 243.85 MiB, increment: -0.05 MiB
+   peak memory: 234.97 MiB, increment: 26.31 MiB
 
    In [10]: %timeit roll_fixed.apply(lambda x: np.sum(x) + 5, raw=True)
    579 ms ± 9.23 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
    In [11]: %memit roll_fixed.apply(lambda x: np.sum(x) + 5, raw=True)
-   peak memory: 264.93 MiB, increment: 2.12 MiB
+   peak memory: 244.38 MiB, increment: 9.43 MiB
 
    In [12]: %timeit roll_offset.apply(lambda x: np.sum(x) + 5, raw=True)
    574 ms ± 5.11 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
    In [13]: %memit roll_offset.apply(lambda x: np.sum(x) + 5, raw=True)
-   peak memory: 275.29 MiB, increment: 1.61 MiB
+   peak memory: 243.82 MiB, increment: 1.62 MiB
 
    In [14]: n = 1_000_000_000
 

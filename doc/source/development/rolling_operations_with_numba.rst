@@ -42,7 +42,7 @@ New Custom Window Indexer API
 
 Currently, window bounds are calculated automatically based on the ``DataFrame`` or ``Series`` index
 when a user passes an integer or offset in the rolling API (e.g. ``df.rolling(2)``). This POC also introduces
-a ``BaseIndexer`` class in ``pandas/core/window/indexers.py`` for users to subclass
+a ``BaseIndexer`` class importable from ``pandas.api.indexers`` for users to subclass
 to create a custom routine to calculate window boundaries. Users will need to specify a
 ``get_window_bounds`` function to calculate window boundaries.
 
@@ -54,7 +54,7 @@ the current ``expanding`` API:
    from typing import Optional
 
    from pandas import Series
-   from pandas.core.window.indexers import BaseIndexer
+   from pandas.api.indexers import BaseIndexer
 
    class ExpandingIndexer(BaseIndexer):
        """Calculate expanding window bounds."""

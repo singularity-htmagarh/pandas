@@ -30,8 +30,8 @@ Implementation
 ``rolling.mean`` and ``rolling.apply`` utilizes `njit <http://numba.pydata.org/numba-doc/latest/reference/jit-compilation.html#numba.jit>`_
 (``jit`` with ``nopython=True``) functions to separately calculate:
 
-* Window boundaries based on the window size and index
-* The actual aggregation function (mean and apply in this POC)
+* `Window boundaries based on the window size and index <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/pandas/core/window/indexers.py>`_
+* `The actual aggregation function (mean and apply in this POC) <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/pandas/core/window/aggregators/methods.py>`_
 
 The functional implementation mimics the current ``Cython`` implementation; however, now that
 the calculation of the window boundaries is separate from the aggregation function, we are able to
@@ -45,7 +45,7 @@ New Custom Window Indexer API
 
 Currently, window bounds are calculated automatically based on the ``DataFrame`` or ``Series`` index
 when a user passes an integer or offset in the rolling API (e.g. ``df.rolling(2)``). This POC also introduces
-a ``BaseIndexer`` class importable from ``pandas.api.indexers`` for users to subclass
+a ``BaseIndexer`` class from ``pandas.api.indexers`` for users to subclass
 to create a custom routine to calculate window boundaries. Users will need to specify a
 ``get_window_bounds`` function to calculate window boundaries.
 
@@ -136,6 +136,7 @@ Future
 
 Once ``Numba`` is a dependency in pandas, the following operations will be addressed next:
 
+#. Expose ``BaseIndexer`` to users through ``pandas.api.indexers``
 #. Implement all rolling aggregations (``min``, ``max``, ``count``, etc,) in ``Numba``
 #. Implement `EWM <https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.ewm.html>`_ and `Expanding <https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.expanding.html>`_ in ``Numba``
 #. Generalize data grouping APIs (e.g. ``rolling``, ``groupby``, ``resample``) through the use of `jitclass <https://numba.pydata.org/numba-doc/dev/user/jitclass.html#numba.jitclass>`_
@@ -144,7 +145,7 @@ Eventually, we aim to generalize data grouping APIs (e.g. ``rolling``, ``groupby
 the sharing of aggregation routines (``mean``, ``apply``, ``count``) through the use of ``jitclass``.
 Currently this path is not fully explored or implemented due to performance reasons, but this issue
 will be `actively developed by the Numba team <https://github.com/numba/numba/issues/4522#issuecomment-537872456>`_
-The `design document <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/doc/source/development/generalized_window.rst>`_
+This `design document <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/doc/source/development/generalized_window.rst>`_
 describes the full implementation.
 
 

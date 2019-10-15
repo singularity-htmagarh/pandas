@@ -30,8 +30,8 @@ Implementation
 ``rolling.mean`` and ``rolling.apply`` utilizes `njit <http://numba.pydata.org/numba-doc/latest/reference/jit-compilation.html#numba.jit>`_
 (``jit`` with ``nopython=True``) functions to separately calculate:
 
-* `Window boundaries based on the window size and index <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/pandas/core/window/indexers.py>`_
-* `The actual aggregation function (mean and apply in this POC) <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/pandas/core/window/aggregators/methods.py>`_
+* `The start and end indexes for each window (window boundaries). <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/pandas/core/window/indexers.py>`_
+* `The aggregation of each window (mean and apply in this POC). <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/pandas/core/window/aggregators/methods.py>`_
 
 The ``Numba`` implementation uses the same algorithms currently implemented in `Cython <https://github.com/pandas-dev/pandas/blob/8c5941cd57e260f4c3552769e79d8d6dbd6283d9/pandas/_libs/window.pyx#L568>`_;
 however, now that the calculation of the window boundaries is separate from the aggregation function,

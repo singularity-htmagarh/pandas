@@ -13,7 +13,7 @@ The benefits of using ``Numba`` include:
 #. Eliminate shipping C-extensions
 #. Ease of debugging and maintenance as pure Python code
 
-Additionally this POC includes an new API that allows users to create custom window boundary calculations
+Additionally this POC includes a new API that allows users to create custom window boundary calculations
 when using ``Numba``. This will enable users to dynamically create windows based on conditions like
 holidays or missing periods without changing the internals of pandas.
 
@@ -33,9 +33,9 @@ Implementation
 * `Window boundaries based on the window size and index <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/pandas/core/window/indexers.py>`_
 * `The actual aggregation function (mean and apply in this POC) <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/pandas/core/window/aggregators/methods.py>`_
 
-The functional implementation mimics the current ``Cython`` implementation; however, now that
-the calculation of the window boundaries is separate from the aggregation function, we are able to
-expose a new API to users that allows them to specify how to calculate the rolling window boundaries.
+The ``Numba`` implementation uses the same algorithms currently implemented in `Cython <https://github.com/pandas-dev/pandas/blob/8c5941cd57e260f4c3552769e79d8d6dbd6283d9/pandas/_libs/window.pyx#L568>`_;
+however, now that the calculation of the window boundaries is separate from the aggregation function,
+we are able to expose a new API to users that allows them to specify how to calculate the rolling window boundaries.
 
 The full implementation can be found in this `repo <https://github.com/twosigma/pandas/tree/feature/generalized_window_operations>`_.
 
@@ -99,8 +99,10 @@ the current ``expanding`` API:
 Performance
 -----------
 
-Below is a table comparing the current performance difference between the Numba and Cython implementations
-for 1 million data points. (Exact benchmark setup can be found in the Appendix)
+Below is a table comparing the current performance difference between the ``Numba`` and ``Cython``
+implementations for a ``Series`` with 1 million data points.
+
+The exact benchmark setup can be found in the Appendix.
 
 +-------------------------+------------------+-----------------+
 | Speed                   | Numba            | Cython          |
@@ -143,7 +145,7 @@ Once ``Numba`` is a dependency in pandas, the following operations will be addre
 Eventually, we aim to generalize data grouping APIs (e.g. ``rolling``, ``groupby``, ``resample``) and
 the sharing of aggregation routines (``mean``, ``apply``, ``count``) through the use of ``jitclass``.
 Currently this path is not fully explored or implemented due to performance reasons, but this issue
-will be `actively developed by the Numba team <https://github.com/numba/numba/issues/4522#issuecomment-537872456>`_
+will be `actively developed by the Numba team <https://github.com/numba/numba/issues/4522#issuecomment-537872456>`_.
 This `design document <https://github.com/twosigma/pandas/blob/feature/generalized_window_operations/doc/source/development/generalized_window.rst>`_
 describes the full implementation.
 

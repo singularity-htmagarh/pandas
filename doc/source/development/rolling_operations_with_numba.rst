@@ -37,8 +37,7 @@ The functional implementation mimics the current ``Cython`` implementation; howe
 the calculation of the window boundaries is separate from the aggregation function, we are able to
 expose a new API to users that allows them to specify how to calculate the rolling window boundaries.
 
-The full implementation can be found on `this branch <https://github.com/twosigma/pandas/tree/feature/generalized_window_operations>`_
-of Two Sigma's pandas repo.
+The full implementation can be found in this `repo <https://github.com/twosigma/pandas/tree/feature/generalized_window_operations>`_.
 
 New Custom Window Indexer API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -79,7 +78,7 @@ the current ``expanding`` API:
            (array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
             array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10]))
            """
-           return np.zeros(num_values, dtype=np.int64), np.arange(1, num_values + 1)
+           return np.zeros(num_values, dtype=np.int32), np.arange(1, num_values + 1)
 
    >>> s = Series(range(5))
    >>> s.rolling(ExpandingIndexer()).mean()

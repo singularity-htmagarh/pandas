@@ -89,7 +89,6 @@ _pxi_dep_template = {
         "_libs/algos_take_helper.pxi.in",
         "_libs/algos_rank_helper.pxi.in",
     ],
-    "groupby": ["_libs/groupby_helper.pxi.in"],
     "hashtable": [
         "_libs/hashtable_class_helper.pxi.in",
         "_libs/hashtable_func_helper.pxi.in",
@@ -229,6 +228,7 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.5",
     "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
     "Programming Language :: Cython",
     "Topic :: Scientific/Engineering",
 ]
@@ -564,7 +564,7 @@ tseries_depends = np_datetime_headers
 
 ext_data = {
     "_libs.algos": {"pyxfile": "_libs/algos", "depends": _pxi_dep["algos"]},
-    "_libs.groupby": {"pyxfile": "_libs/groupby", "depends": _pxi_dep["groupby"]},
+    "_libs.groupby": {"pyxfile": "_libs/groupby"},
     "_libs.hashing": {"pyxfile": "_libs/hashing", "include": [], "depends": []},
     "_libs.hashtable": {
         "pyxfile": "_libs/hashtable",

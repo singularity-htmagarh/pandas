@@ -808,7 +808,7 @@ class TestMoments(Base):
         has_time_rule=True,
         fill_value=None,
         zero_min_periods_equal=True,
-        **kwargs
+        **kwargs,
     ):
 
         # inject raw

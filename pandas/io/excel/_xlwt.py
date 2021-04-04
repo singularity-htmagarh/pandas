@@ -1,23 +1,47 @@
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Optional,
+)
+
 import pandas._libs.json as json
+from pandas._typing import StorageOptions
 
 from pandas.io.excel._base import ExcelWriter
-from pandas.io.excel._util import _validate_freeze_panes
+from pandas.io.excel._util import validate_freeze_panes
+
+if TYPE_CHECKING:
+    from xlwt import XFStyle
 
 
-class _XlwtWriter(ExcelWriter):
+class XlwtWriter(ExcelWriter):
     engine = "xlwt"
     supported_extensions = (".xls",)
 
-    def __init__(self, path, engine=None, encoding=None, mode="w", **engine_kwargs):
+    def __init__(
+        self,
+        path,
+        engine=None,
+        date_format=None,
+        datetime_format=None,
+        encoding=None,
+        mode: str = "w",
+        storage_options: StorageOptions = None,
+        engine_kwargs: Optional[Dict[str, Any]] = None,
+    ):
         # Use the xlwt module as the Excel writer.
         import xlwt
-
-        engine_kwargs["engine"] = engine
 
         if mode == "a":
             raise ValueError("Append mode is not supported with xlwt!")
 
-        super().__init__(path, mode=mode, **engine_kwargs)
+        super().__init__(
+            path,
+            mode=mode,
+            storage_options=storage_options,
+            engine_kwargs=engine_kwargs,
+        )
 
         if encoding is None:
             encoding = "ascii"
@@ -29,12 +53,13 @@ class _XlwtWriter(ExcelWriter):
         """
         Save workbook to disk.
         """
-        return self.book.save(self.path)
+        if self.sheets:
+            # fails when the ExcelWriter is just opened and then closed
+            self.book.save(self.handles.handle)
 
     def write_cells(
         self, cells, sheet_name=None, startrow=0, startcol=0, freeze_panes=None
     ):
-        # Write the frame cells using xlwt.
 
         sheet_name = self._get_sheet_name(sheet_name)
 
@@ -44,12 +69,12 @@ class _XlwtWriter(ExcelWriter):
             wks = self.book.add_sheet(sheet_name)
             self.sheets[sheet_name] = wks
 
-        if _validate_freeze_panes(freeze_panes):
+        if validate_freeze_panes(freeze_panes):
             wks.set_panes_frozen(True)
             wks.set_horz_split_pos(freeze_panes[0])
             wks.set_vert_split_pos(freeze_panes[1])
 
-        style_dict = {}
+        style_dict: Dict[str, XFStyle] = {}
 
         for cell in cells:
             val, fmt = self._value_with_fmt(cell.val)
@@ -80,7 +105,8 @@ class _XlwtWriter(ExcelWriter):
     def _style_to_xlwt(
         cls, item, firstlevel: bool = True, field_sep=",", line_sep=";"
     ) -> str:
-        """helper which recursively generate an xlwt easy style string
+        """
+        helper which recursively generate an xlwt easy style string
         for example:
 
             hstyle = {"font": {"bold": True},
@@ -97,20 +123,20 @@ class _XlwtWriter(ExcelWriter):
         if hasattr(item, "items"):
             if firstlevel:
                 it = [
-                    "{key}: {val}".format(key=key, val=cls._style_to_xlwt(value, False))
+                    f"{key}: {cls._style_to_xlwt(value, False)}"
                     for key, value in item.items()
                 ]
-                out = "{sep} ".format(sep=(line_sep).join(it))
+                out = f"{line_sep.join(it)} "
                 return out
             else:
                 it = [
-                    "{key} {val}".format(key=key, val=cls._style_to_xlwt(value, False))
+                    f"{key} {cls._style_to_xlwt(value, False)}"
                     for key, value in item.items()
                 ]
-                out = "{sep} ".format(sep=(field_sep).join(it))
+                out = f"{field_sep.join(it)} "
                 return out
         else:
-            item = "{item}".format(item=item)
+            item = f"{item}"
             item = item.replace("True", "on")
             item = item.replace("False", "off")
             return item

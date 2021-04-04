@@ -4,7 +4,10 @@ import warnings
 
 from pandas.core.dtypes.generic import ABCDataFrame
 
-from pandas import get_option, option_context
+from pandas import (
+    get_option,
+    option_context,
+)
 
 
 def read_clipboard(sep=r"\s+", **kwargs):  # pragma: no cover
@@ -69,8 +72,7 @@ def read_clipboard(sep=r"\s+", **kwargs):  # pragma: no cover
         kwargs["engine"] = "python"
     elif len(sep) > 1 and kwargs.get("engine") == "c":
         warnings.warn(
-            "read_clipboard with regex separator does not work"
-            " properly with c engine"
+            "read_clipboard with regex separator does not work properly with c engine"
         )
 
     return read_csv(StringIO(text), sep=sep, **kwargs)
@@ -84,7 +86,7 @@ def to_clipboard(obj, excel=True, sep=None, **kwargs):  # pragma: no cover
     Parameters
     ----------
     obj : the object to write to the clipboard
-    excel : boolean, defaults to True
+    excel : bool, defaults to True
             if True, use the provided separator, writing in a csv
             format for allowing easy pasting into excel.
             if False, write a string representation of the object

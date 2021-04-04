@@ -15,7 +15,6 @@ See LICENSE for the license
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#define ERROR_OK 0
 #define ERROR_NO_DIGITS 1
 #define ERROR_OVERFLOW 2
 #define ERROR_INVALID_CHARS 3
@@ -31,10 +30,6 @@ See LICENSE for the license
 #define REACHED_EOF 1
 #define CALLING_READ_FAILED 2
 
-
-#if defined(_MSC_VER)
-#define strtoll _strtoi64
-#endif  // _MSC_VER
 
 /*
 
@@ -57,8 +52,8 @@ See LICENSE for the license
 #define PARSER_OUT_OF_MEMORY -1
 
 /*
- *  XXX Might want to couple count_rows() with read_rows() to avoid duplication
- *      of some file I/O.
+ *  TODO: Might want to couple count_rows() with read_rows() to avoid
+ *        duplication of some file I/O.
  */
 
 typedef enum {
@@ -90,7 +85,7 @@ typedef enum {
 } QuoteStyle;
 
 typedef void *(*io_callback)(void *src, size_t nbytes, size_t *bytes_read,
-                             int *status);
+                             int *status, const char *encoding_errors);
 typedef int (*io_cleanup)(void *src);
 
 typedef struct parser_t {
@@ -137,7 +132,6 @@ typedef struct parser_t {
 
     char commentchar;
     int allow_embedded_newline;
-    int strict; /* raise exception on bad CSV */
 
     int usecols;  // Boolean: 1: usecols provided, 0: none provided
 
@@ -160,11 +154,8 @@ typedef struct parser_t {
     PyObject *skipfunc;
     int64_t skip_first_N_rows;
     int64_t skip_footer;
-    // pick one, depending on whether the converter requires GIL
-    double (*double_converter_nogil)(const char *, char **,
-                                     char, char, char, int, int *, int *);
-    double (*double_converter_withgil)(const char *, char **,
-                                       char, char, char, int, int *, int *);
+    double (*double_converter)(const char *, char **,
+                               char, char, char, int, int *, int *);
 
     // error handling
     char *warn_msg;
@@ -180,7 +171,6 @@ typedef struct coliter_t {
 } coliter_t;
 
 void coliter_setup(coliter_t *self, parser_t *parser, int i, int start);
-coliter_t *coliter_new(parser_t *self, int i);
 
 #define COLITER_NEXT(iter, word)                           \
     do {                                                   \
@@ -206,9 +196,9 @@ void parser_del(parser_t *self);
 
 void parser_set_default_options(parser_t *self);
 
-int tokenize_nrows(parser_t *self, size_t nrows);
+int tokenize_nrows(parser_t *self, size_t nrows, const char *encoding_errors);
 
-int tokenize_all_rows(parser_t *self);
+int tokenize_all_rows(parser_t *self, const char *encoding_errors);
 
 // Have parsed / type-converted a chunk of data
 // and want to free memory from the token stream
@@ -232,6 +222,8 @@ double xstrtod(const char *p, char **q, char decimal, char sci, char tsep,
 double precise_xstrtod(const char *p, char **q, char decimal,
                        char sci, char tsep, int skip_trailing,
                        int *error, int *maybe_int);
+
+// GH-15140 - round_trip requires and acquires the GIL on its own
 double round_trip(const char *p, char **q, char decimal, char sci, char tsep,
                   int skip_trailing, int *error, int *maybe_int);
 int to_boolean(const char *item, uint8_t *val);

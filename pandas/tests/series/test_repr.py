@@ -1,4 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 
 import numpy as np
 import pytest
@@ -8,14 +11,14 @@ from pandas import (
     Categorical,
     DataFrame,
     Index,
+    MultiIndex,
     Series,
     date_range,
     option_context,
     period_range,
     timedelta_range,
 )
-from pandas.core.index import MultiIndex
-import pandas.util.testing as tm
+import pandas._testing as tm
 
 
 class TestSeriesRepr:
@@ -62,7 +65,7 @@ class TestSeriesRepr:
         s.name = None
         assert "Name:" not in repr(s)
 
-        s = Series(index=date_range("20010101", "20020101"), name="test")
+        s = Series(index=date_range("20010101", "20020101"), name="test", dtype=object)
         assert "Name: test" in repr(s)
 
     def test_repr(self, datetime_series, string_series, object_series):
@@ -71,11 +74,11 @@ class TestSeriesRepr:
         str(string_series.astype(int))
         str(object_series)
 
-        str(Series(tm.randn(1000), index=np.arange(1000)))
-        str(Series(tm.randn(1000), index=np.arange(1000, 0, step=-1)))
+        str(Series(np.random.randn(1000), index=np.arange(1000)))
+        str(Series(np.random.randn(1000), index=np.arange(1000, 0, step=-1)))
 
         # empty
-        str(Series())
+        str(Series(dtype=object))
 
         # with NaNs
         string_series[5:7] = np.NaN
@@ -104,7 +107,7 @@ class TestSeriesRepr:
             repr(string_series)
 
         biggie = Series(
-            tm.randn(1000), index=np.arange(1000), name=("foo", "bar", "baz")
+            np.random.randn(1000), index=np.arange(1000), name=("foo", "bar", "baz")
         )
         repr(biggie)
 
@@ -166,7 +169,7 @@ class TestSeriesRepr:
 
     def test_repr_max_rows(self):
         # GH 6863
-        with pd.option_context("max_rows", None):
+        with option_context("max_rows", None):
             str(Series(range(1001)))  # should not raise exception
 
     def test_unicode_string_with_unicode(self):
@@ -218,6 +221,25 @@ class TestSeriesRepr:
 
         assert repr(s) == exp
 
+    def test_format_pre_1900_dates(self):
+        rng = date_range("1/1/1850", "1/1/1950", freq="A-DEC")
+        rng.format()
+        ts = Series(1, index=rng)
+        repr(ts)
+
+    def test_series_repr_nat(self):
+        series = Series([0, 1000, 2000, pd.NaT.value], dtype="M8[ns]")
+
+        result = repr(series)
+        expected = (
+            "0   1970-01-01 00:00:00.000000\n"
+            "1   1970-01-01 00:00:00.000001\n"
+            "2   1970-01-01 00:00:00.000002\n"
+            "3                          NaT\n"
+            "dtype: datetime64[ns]"
+        )
+        assert result == expected
+
 
 class TestCategoricalRepr:
     def test_categorical_repr_unicode(self):
@@ -230,8 +252,8 @@ class TestCategoricalRepr:
             def __repr__(self) -> str:
                 return self.name + ", " + self.state
 
-        cat = pd.Categorical([County() for _ in range(61)])
-        idx = pd.Index(cat)
+        cat = Categorical([County() for _ in range(61)])
+        idx = Index(cat)
         ser = idx.to_series()
 
         repr(ser)
@@ -251,7 +273,7 @@ class TestCategoricalRepr:
             "0     a\n1     b\n"
             + "     ..\n"
             + "48    a\n49    b\n"
-            + "Length: 50, dtype: category\nCategories (2, object): [a, b]"
+            + "Length: 50, dtype: category\nCategories (2, object): ['a', 'b']"
         )
         with option_context("display.max_rows", 5):
             assert exp == repr(a)
@@ -260,7 +282,7 @@ class TestCategoricalRepr:
         a = Series(Categorical(["a", "b"], categories=levs, ordered=True))
         exp = (
             "0    a\n1    b\n" + "dtype: category\n"
-            "Categories (26, object): [a < b < c < d ... w < x < y < z]"
+            "Categories (26, object): ['a' < 'b' < 'c' < 'd' ... 'w' < 'x' < 'y' < 'z']"
         )
         assert exp == a.__str__()
 
@@ -465,7 +487,7 @@ Categories (10, timedelta64[ns]): [0 days 01:00:00, 1 days 01:00:00, 2 days 01:0
 3   4 days
 4   5 days
 dtype: category
-Categories (5, timedelta64[ns]): [1 days < 2 days < 3 days < 4 days < 5 days]"""  # noqa
+Categories (5, timedelta64[ns]): [1 days < 2 days < 3 days < 4 days < 5 days]"""
 
         assert repr(s) == exp
 

@@ -9,8 +9,11 @@ import numpy as np
 import pytest
 
 import pandas as pd
-from pandas import DataFrame, Index
-import pandas.util.testing as tm
+from pandas import (
+    DataFrame,
+    Index,
+)
+import pandas._testing as tm
 
 
 def test_converters_type_must_be_dict(all_parsers):
@@ -57,7 +60,7 @@ def test_converters_no_implicit_conv(all_parsers):
 
 def test_converters_euro_decimal_format(all_parsers):
     # see gh-583
-    converters = dict()
+    converters = {}
     parser = all_parsers
 
     data = """Id;Number1;Number2;Text1;Text2;Number3

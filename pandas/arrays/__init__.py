@@ -4,8 +4,10 @@ All of pandas' ExtensionArrays.
 See :ref:`extending.extension-types` for more.
 """
 from pandas.core.arrays import (
+    BooleanArray,
     Categorical,
     DatetimeArray,
+    FloatingArray,
     IntegerArray,
     IntervalArray,
     PandasArray,
@@ -16,8 +18,10 @@ from pandas.core.arrays import (
 )
 
 __all__ = [
+    "BooleanArray",
     "Categorical",
     "DatetimeArray",
+    "FloatingArray",
     "IntegerArray",
     "IntervalArray",
     "PandasArray",

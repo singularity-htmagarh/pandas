@@ -2,9 +2,9 @@ import pytest
 
 import pandas as pd
 
-pytest.importorskip("pyarrow", minversion="0.10.0")
+pytest.importorskip("pyarrow", minversion="0.13.0")
 
-from .arrays import ArrowStringDtype  # isort:skip
+from pandas.tests.extension.arrow.arrays import ArrowStringDtype  # isort:skip
 
 
 def test_constructor_from_list():

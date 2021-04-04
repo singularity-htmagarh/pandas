@@ -1,10 +1,16 @@
-import warnings
+from typing import (
+    List,
+    MutableMapping,
+)
 
 from pandas.compat._optional import import_optional_dependency
 
-from pandas.core.dtypes.common import is_integer, is_list_like
+from pandas.core.dtypes.common import (
+    is_integer,
+    is_list_like,
+)
 
-_writers = {}
+_writers: MutableMapping[str, str] = {}
 
 
 def register_writer(klass):
@@ -23,37 +29,56 @@ def register_writer(klass):
     _writers[engine_name] = klass
 
 
-def _get_default_writer(ext):
+def get_default_engine(ext, mode="reader"):
     """
-    Return the default writer for the given extension.
+    Return the default reader/writer for the given extension.
 
     Parameters
     ----------
     ext : str
         The excel file extension for which to get the default engine.
+    mode : str {'reader', 'writer'}
+        Whether to get the default engine for reading or writing.
+        Either 'reader' or 'writer'
 
     Returns
     -------
     str
         The default engine for the extension.
     """
-    _default_writers = {"xlsx": "openpyxl", "xlsm": "openpyxl", "xls": "xlwt"}
-    xlsxwriter = import_optional_dependency(
-        "xlsxwriter", raise_on_missing=False, on_version="warn"
-    )
-    if xlsxwriter:
-        _default_writers["xlsx"] = "xlsxwriter"
-    return _default_writers[ext]
+    _default_readers = {
+        "xlsx": "openpyxl",
+        "xlsm": "openpyxl",
+        "xlsb": "pyxlsb",
+        "xls": "xlrd",
+        "ods": "odf",
+    }
+    _default_writers = {
+        "xlsx": "openpyxl",
+        "xlsm": "openpyxl",
+        "xlsb": "pyxlsb",
+        "xls": "xlwt",
+        "ods": "odf",
+    }
+    assert mode in ["reader", "writer"]
+    if mode == "writer":
+        # Prefer xlsxwriter over openpyxl if installed
+        xlsxwriter = import_optional_dependency("xlsxwriter", errors="warn")
+        if xlsxwriter:
+            _default_writers["xlsx"] = "xlsxwriter"
+        return _default_writers[ext]
+    else:
+        return _default_readers[ext]
 
 
 def get_writer(engine_name):
     try:
         return _writers[engine_name]
-    except KeyError:
-        raise ValueError("No Excel writer '{engine}'".format(engine=engine_name))
+    except KeyError as err:
+        raise ValueError(f"No Excel writer '{engine_name}'") from err
 
 
-def _excel2num(x):
+def _excel2num(x: str) -> int:
     """
     Convert Excel column name like 'AB' to 0-based column index.
 
@@ -78,14 +103,14 @@ def _excel2num(x):
         cp = ord(c)
 
         if cp < ord("A") or cp > ord("Z"):
-            raise ValueError("Invalid column name: {x}".format(x=x))
+            raise ValueError(f"Invalid column name: {x}")
 
         index = index * 26 + cp - ord("A") + 1
 
     return index - 1
 
 
-def _range2cols(areas):
+def _range2cols(areas: str) -> List[int]:
     """
     Convert comma separated list of column names and ranges to indices.
 
@@ -106,19 +131,19 @@ def _range2cols(areas):
     >>> _range2cols('A,C,Z:AB')
     [0, 2, 25, 26, 27]
     """
-    cols = []
+    cols: List[int] = []
 
     for rng in areas.split(","):
         if ":" in rng:
-            rng = rng.split(":")
-            cols.extend(range(_excel2num(rng[0]), _excel2num(rng[1]) + 1))
+            rngs = rng.split(":")
+            cols.extend(range(_excel2num(rngs[0]), _excel2num(rngs[1]) + 1))
         else:
             cols.append(_excel2num(rng))
 
     return cols
 
 
-def _maybe_convert_usecols(usecols):
+def maybe_convert_usecols(usecols):
     """
     Convert `usecols` into a compatible format for parsing in `parsers.py`.
 
@@ -136,16 +161,10 @@ def _maybe_convert_usecols(usecols):
         return usecols
 
     if is_integer(usecols):
-        warnings.warn(
-            (
-                "Passing in an integer for `usecols` has been "
-                "deprecated. Please pass in a list of int from "
-                "0 to `usecols` inclusive instead."
-            ),
-            FutureWarning,
-            stacklevel=2,
+        raise ValueError(
+            "Passing an integer for `usecols` is no longer supported.  "
+            "Please pass in a list of int from 0 to `usecols` inclusive instead."
         )
-        return list(range(usecols + 1))
 
     if isinstance(usecols, str):
         return _range2cols(usecols)
@@ -153,7 +172,7 @@ def _maybe_convert_usecols(usecols):
     return usecols
 
 
-def _validate_freeze_panes(freeze_panes):
+def validate_freeze_panes(freeze_panes):
     if freeze_panes is not None:
         if len(freeze_panes) == 2 and all(
             isinstance(item, int) for item in freeze_panes
@@ -161,8 +180,8 @@ def _validate_freeze_panes(freeze_panes):
             return True
 
         raise ValueError(
-            "freeze_panes must be of form (row, column)"
-            " where row and column are integers"
+            "freeze_panes must be of form (row, column) "
+            "where row and column are integers"
         )
 
     # freeze_panes wasn't specified, return False so it won't be applied
@@ -170,18 +189,12 @@ def _validate_freeze_panes(freeze_panes):
     return False
 
 
-def _trim_excel_header(row):
-    # trim header row so auto-index inference works
-    # xlrd uses '' , openpyxl None
-    while len(row) > 0 and (row[0] == "" or row[0] is None):
-        row = row[1:]
-    return row
-
-
-def _fill_mi_header(row, control_row):
-    """Forward fill blank entries in row but only inside the same parent index.
+def fill_mi_header(row, control_row):
+    """
+    Forward fill blank entries in row but only inside the same parent index.
 
     Used for creating headers in Multiindex.
+
     Parameters
     ----------
     row : list
@@ -209,7 +222,7 @@ def _fill_mi_header(row, control_row):
     return row, control_row
 
 
-def _pop_header_name(row, index_col):
+def pop_header_name(row, index_col):
     """
     Pop the header name for MultiIndex parsing.
 

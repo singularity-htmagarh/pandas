@@ -32,7 +32,6 @@ Properties
    Index.has_duplicates
    Index.hasnans
    Index.dtype
-   Index.dtype_str
    Index.inferred_type
    Index.is_all_dates
    Index.shape
@@ -42,9 +41,6 @@ Properties
    Index.ndim
    Index.size
    Index.empty
-   Index.strides
-   Index.itemsize
-   Index.base
    Index.T
    Index.memory_usage
 
@@ -155,8 +151,6 @@ Selecting
 
    Index.asof
    Index.asof_locs
-   Index.contains
-   Index.get_duplicates
    Index.get_indexer
    Index.get_indexer_for
    Index.get_indexer_non_unique
@@ -164,7 +158,6 @@ Selecting
    Index.get_loc
    Index.get_slice_bound
    Index.get_value
-   Index.get_values
    Index.isin
    Index.slice_indexer
    Index.slice_locs
@@ -297,6 +290,7 @@ MultiIndex properties
    MultiIndex.codes
    MultiIndex.nlevels
    MultiIndex.levshape
+   MultiIndex.dtypes
 
 MultiIndex components
 ~~~~~~~~~~~~~~~~~~~~~
@@ -305,10 +299,8 @@ MultiIndex components
 
    MultiIndex.set_levels
    MultiIndex.set_codes
-   MultiIndex.to_hierarchical
    MultiIndex.to_flat_index
    MultiIndex.to_frame
-   MultiIndex.is_lexsorted
    MultiIndex.sortlevel
    MultiIndex.droplevel
    MultiIndex.swaplevel
@@ -321,6 +313,7 @@ MultiIndex selecting
    :toctree: api/
 
    MultiIndex.get_loc
+   MultiIndex.get_locs
    MultiIndex.get_loc_level
    MultiIndex.get_indexer
    MultiIndex.get_level_values
@@ -335,7 +328,7 @@ DatetimeIndex
 
    DatetimeIndex
 
-Time/Date components
+Time/date components
 ~~~~~~~~~~~~~~~~~~~~
 .. autosummary::
    :toctree: api/
@@ -352,9 +345,11 @@ Time/Date components
    DatetimeIndex.time
    DatetimeIndex.timetz
    DatetimeIndex.dayofyear
+   DatetimeIndex.day_of_year
    DatetimeIndex.weekofyear
    DatetimeIndex.week
    DatetimeIndex.dayofweek
+   DatetimeIndex.day_of_week
    DatetimeIndex.weekday
    DatetimeIndex.quarter
    DatetimeIndex.tz
@@ -468,7 +463,9 @@ Properties
 
     PeriodIndex.day
     PeriodIndex.dayofweek
+    PeriodIndex.day_of_week
     PeriodIndex.dayofyear
+    PeriodIndex.day_of_year
     PeriodIndex.days_in_month
     PeriodIndex.daysinmonth
     PeriodIndex.end_time

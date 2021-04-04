@@ -3,7 +3,9 @@ import pytest
 import pandas.util._test_decorators as td
 
 import pandas as pd
-import pandas.util.testing as tm
+import pandas._testing as tm
+
+pytestmark = td.skip_array_manager_not_yet_implemented
 
 
 @td.skip_if_installed("tables")

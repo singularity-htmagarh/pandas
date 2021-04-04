@@ -1,16 +1,36 @@
-import warnings
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from pandas.core.dtypes.common import is_integer, is_list_like
-from pandas.core.dtypes.generic import ABCDataFrame, ABCIndexClass
-from pandas.core.dtypes.missing import isna, remove_na_arraylike
-
-import pandas.core.common as com
+from pandas.core.dtypes.common import (
+    is_integer,
+    is_list_like,
+)
+from pandas.core.dtypes.generic import (
+    ABCDataFrame,
+    ABCIndex,
+)
+from pandas.core.dtypes.missing import (
+    isna,
+    remove_na_arraylike,
+)
 
 from pandas.io.formats.printing import pprint_thing
-from pandas.plotting._matplotlib.core import LinePlot, MPLPlot
-from pandas.plotting._matplotlib.tools import _flatten, _set_ticks_props, _subplots
+from pandas.plotting._matplotlib.core import (
+    LinePlot,
+    MPLPlot,
+)
+from pandas.plotting._matplotlib.tools import (
+    create_subplots,
+    flatten_axes,
+    maybe_adjust_figure,
+    set_ticks_props,
+)
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 
 class HistPlot(LinePlot):
@@ -29,11 +49,8 @@ class HistPlot(LinePlot):
             values = np.ravel(values)
             values = values[~isna(values)]
 
-            hist, self.bins = np.histogram(
-                values,
-                bins=self.bins,
-                range=self.kwds.get("range", None),
-                weights=self.kwds.get("weights", None),
+            _, self.bins = np.histogram(
+                values, bins=self.bins, range=self.kwds.get("range", None)
             )
 
         if is_list_like(self.bottom):
@@ -72,6 +89,7 @@ class HistPlot(LinePlot):
             kwds = self.kwds.copy()
 
             label = pprint_thing(label)
+            label = self._mark_right_label(label, index=i)
             kwds["label"] = label
 
             style, kwds = self._apply_style_colors(colors, kwds, i, label)
@@ -79,8 +97,16 @@ class HistPlot(LinePlot):
                 kwds["style"] = style
 
             kwds = self._make_plot_keywords(kwds, y)
+
+            # We allow weights to be a multi-dimensional array, e.g. a (10, 2) array,
+            # and each sub-array (10,) will be called in each iteration. If users only
+            # provide 1D array, we assume the same weights is used for all iterations
+            weights = kwds.get("weights", None)
+            if weights is not None and np.ndim(weights) != 1:
+                kwds["weights"] = weights[:, i]
+
             artists = self._plot(ax, y, column_num=i, stacking_id=stacking_id, **kwds)
-            self._add_legend_handle(artists[0], label, index=i)
+            self._append_legend_handles_labels(artists[0], label)
 
     def _make_plot_keywords(self, kwds, y):
         """merge BoxPlot/KdePlot properties to passed kwds"""
@@ -89,7 +115,7 @@ class HistPlot(LinePlot):
         kwds["bins"] = self.bins
         return kwds
 
-    def _post_plot_logic(self, ax, data):
+    def _post_plot_logic(self, ax: Axes, data):
         if self.orientation == "horizontal":
             ax.set_xlabel("Frequency")
         else:
@@ -182,23 +208,21 @@ def _grouped_plot(
 
     if figsize == "default":
         # allowed to specify mpl default with 'default'
-        warnings.warn(
-            "figsize='default' is deprecated. Specify figure size by tuple instead",
-            FutureWarning,
-            stacklevel=5,
+        raise ValueError(
+            "figsize='default' is no longer supported. "
+            "Specify figure size by tuple instead"
         )
-        figsize = None
 
     grouped = data.groupby(by)
     if column is not None:
         grouped = grouped[column]
 
     naxes = len(grouped)
-    fig, axes = _subplots(
+    fig, axes = create_subplots(
         naxes=naxes, figsize=figsize, sharex=sharex, sharey=sharey, ax=ax, layout=layout
     )
 
-    _axes = _flatten(axes)
+    _axes = flatten_axes(axes)
 
     for i, (key, group) in enumerate(grouped):
         ax = _axes[i]
@@ -226,6 +250,7 @@ def _grouped_hist(
     xrot=None,
     ylabelsize=None,
     yrot=None,
+    legend=False,
     **kwargs,
 ):
     """
@@ -244,17 +269,29 @@ def _grouped_hist(
     sharey : bool, default False
     rot : int, default 90
     grid : bool, default True
+    legend: : bool, default False
     kwargs : dict, keyword arguments passed to matplotlib.Axes.hist
 
     Returns
     -------
     collection of Matplotlib Axes
     """
+    if legend:
+        assert "label" not in kwargs
+        if data.ndim == 1:
+            kwargs["label"] = data.name
+        elif column is None:
+            kwargs["label"] = data.columns
+        else:
+            kwargs["label"] = column
 
     def plot_group(group, ax):
         ax.hist(group.dropna().values, bins=bins, **kwargs)
+        if legend:
+            ax.legend()
 
-    xrot = xrot or rot
+    if xrot is None:
+        xrot = rot
 
     fig, axes = _grouped_plot(
         plot_group,
@@ -269,12 +306,12 @@ def _grouped_hist(
         rot=rot,
     )
 
-    _set_ticks_props(
+    set_ticks_props(
         axes, xlabelsize=xlabelsize, xrot=xrot, ylabelsize=ylabelsize, yrot=yrot
     )
 
-    fig.subplots_adjust(
-        bottom=0.15, top=0.9, left=0.1, right=0.9, hspace=0.5, wspace=0.3
+    maybe_adjust_figure(
+        fig, bottom=0.15, top=0.9, left=0.1, right=0.9, hspace=0.5, wspace=0.3
     )
     return axes
 
@@ -290,9 +327,13 @@ def hist_series(
     yrot=None,
     figsize=None,
     bins=10,
+    legend: bool = False,
     **kwds,
 ):
     import matplotlib.pyplot as plt
+
+    if legend and "label" in kwds:
+        raise ValueError("Cannot use both legend and label")
 
     if by is None:
         if kwds.get("layout", None) is not None:
@@ -308,12 +349,15 @@ def hist_series(
         elif ax.get_figure() != fig:
             raise AssertionError("passed axis not bound to passed figure")
         values = self.dropna().values
-
+        if legend:
+            kwds["label"] = self.name
         ax.hist(values, bins=bins, **kwds)
+        if legend:
+            ax.legend()
         ax.grid(grid)
         axes = np.array([ax])
 
-        _set_ticks_props(
+        set_ticks_props(
             axes, xlabelsize=xlabelsize, xrot=xrot, ylabelsize=ylabelsize, yrot=yrot
         )
 
@@ -321,8 +365,7 @@ def hist_series(
         if "figure" in kwds:
             raise ValueError(
                 "Cannot pass 'figure' when using the "
-                "'by' argument, since a new 'Figure' instance "
-                "will be created"
+                "'by' argument, since a new 'Figure' instance will be created"
             )
         axes = _grouped_hist(
             self,
@@ -335,6 +378,7 @@ def hist_series(
             xrot=xrot,
             ylabelsize=ylabelsize,
             yrot=yrot,
+            legend=legend,
             **kwds,
         )
 
@@ -359,8 +403,11 @@ def hist_frame(
     figsize=None,
     layout=None,
     bins=10,
+    legend: bool = False,
     **kwds,
 ):
+    if legend and "label" in kwds:
+        raise ValueError("Cannot use both legend and label")
     if by is not None:
         axes = _grouped_hist(
             data,
@@ -377,21 +424,27 @@ def hist_frame(
             xrot=xrot,
             ylabelsize=ylabelsize,
             yrot=yrot,
+            legend=legend,
             **kwds,
         )
         return axes
 
     if column is not None:
-        if not isinstance(column, (list, np.ndarray, ABCIndexClass)):
+        if not isinstance(column, (list, np.ndarray, ABCIndex)):
             column = [column]
         data = data[column]
-    data = data._get_numeric_data()
+    # GH32590
+    data = data.select_dtypes(
+        include=(np.number, "datetime64", "datetimetz"), exclude="timedelta"
+    )
     naxes = len(data.columns)
 
     if naxes == 0:
-        raise ValueError("hist method requires numerical columns, nothing to plot.")
+        raise ValueError(
+            "hist method requires numerical or datetime columns, nothing to plot."
+        )
 
-    fig, axes = _subplots(
+    fig, axes = create_subplots(
         naxes=naxes,
         ax=ax,
         squeeze=False,
@@ -400,17 +453,23 @@ def hist_frame(
         figsize=figsize,
         layout=layout,
     )
-    _axes = _flatten(axes)
+    _axes = flatten_axes(axes)
 
-    for i, col in enumerate(com.try_sort(data.columns)):
+    can_set_label = "label" not in kwds
+
+    for i, col in enumerate(data.columns):
         ax = _axes[i]
+        if legend and can_set_label:
+            kwds["label"] = col
         ax.hist(data[col].dropna().values, bins=bins, **kwds)
         ax.set_title(col)
         ax.grid(grid)
+        if legend:
+            ax.legend()
 
-    _set_ticks_props(
+    set_ticks_props(
         axes, xlabelsize=xlabelsize, xrot=xrot, ylabelsize=ylabelsize, yrot=yrot
     )
-    fig.subplots_adjust(wspace=0.3, hspace=0.3)
+    maybe_adjust_figure(fig, wspace=0.3, hspace=0.3)
 
     return axes

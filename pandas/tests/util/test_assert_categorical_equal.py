@@ -1,7 +1,7 @@
 import pytest
 
 from pandas import Categorical
-import pandas.util.testing as tm
+import pandas._testing as tm
 
 
 @pytest.mark.parametrize(
@@ -16,7 +16,7 @@ def test_categorical_equal(c):
 def test_categorical_equal_order_mismatch(check_category_order):
     c1 = Categorical([1, 2, 3, 4], categories=[1, 2, 3, 4])
     c2 = Categorical([1, 2, 3, 4], categories=[4, 3, 2, 1])
-    kwargs = dict(check_category_order=check_category_order)
+    kwargs = {"check_category_order": check_category_order}
 
     if check_category_order:
         msg = """Categorical\\.categories are different
@@ -77,13 +77,11 @@ Attribute "ordered" are different
 @pytest.mark.parametrize("obj", ["index", "foo", "pandas"])
 def test_categorical_equal_object_override(obj):
     data = [1, 2, 3, 4]
-    msg = """{obj} are different
+    msg = f"""{obj} are different
 
 Attribute "ordered" are different
 \\[left\\]:  False
-\\[right\\]: True""".format(
-        obj=obj
-    )
+\\[right\\]: True"""
 
     c1 = Categorical(data, ordered=False)
     c2 = Categorical(data, ordered=True)

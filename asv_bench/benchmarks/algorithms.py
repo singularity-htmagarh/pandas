@@ -2,10 +2,9 @@ from importlib import import_module
 
 import numpy as np
 
-from pandas._libs import lib
-
 import pandas as pd
-from pandas.util import testing as tm
+
+from .pandas_vb_common import tm
 
 for imp in ["pandas.util", "pandas.tools.hashing"]:
     try:
@@ -15,98 +14,88 @@ for imp in ["pandas.util", "pandas.tools.hashing"]:
         pass
 
 
-class MaybeConvertObjects:
-    def setup(self):
-        N = 10 ** 5
-
-        data = list(range(N))
-        data[0] = pd.NaT
-        data = np.array(data)
-        self.data = data
-
-    def time_maybe_convert_objects(self):
-        lib.maybe_convert_objects(self.data)
-
-
 class Factorize:
 
-    params = [[True, False], ["int", "uint", "float", "string"]]
-    param_names = ["sort", "dtype"]
+    params = [
+        [True, False],
+        [True, False],
+        [
+            "int",
+            "uint",
+            "float",
+            "string",
+            "datetime64[ns]",
+            "datetime64[ns, tz]",
+            "Int64",
+            "boolean",
+            "string_arrow",
+        ],
+    ]
+    param_names = ["unique", "sort", "dtype"]
 
-    def setup(self, sort, dtype):
+    def setup(self, unique, sort, dtype):
         N = 10 ** 5
-        data = {
-            "int": pd.Int64Index(np.arange(N).repeat(5)),
-            "uint": pd.UInt64Index(np.arange(N).repeat(5)),
-            "float": pd.Float64Index(np.random.randn(N).repeat(5)),
-            "string": tm.makeStringIndex(N).repeat(5),
-        }
-        self.idx = data[dtype]
+        string_index = tm.makeStringIndex(N)
+        try:
+            from pandas.core.arrays.string_arrow import ArrowStringDtype
 
-    def time_factorize(self, sort, dtype):
-        self.idx.factorize(sort=sort)
+            string_arrow = pd.array(string_index, dtype=ArrowStringDtype())
+        except ImportError:
+            string_arrow = None
 
+        if dtype == "string_arrow" and not string_arrow:
+            raise NotImplementedError
 
-class FactorizeUnique:
-
-    params = [[True, False], ["int", "uint", "float", "string"]]
-    param_names = ["sort", "dtype"]
-
-    def setup(self, sort, dtype):
-        N = 10 ** 5
         data = {
             "int": pd.Int64Index(np.arange(N)),
             "uint": pd.UInt64Index(np.arange(N)),
-            "float": pd.Float64Index(np.arange(N)),
-            "string": tm.makeStringIndex(N),
-        }
-        self.idx = data[dtype]
-        assert self.idx.is_unique
+            "float": pd.Float64Index(np.random.randn(N)),
+            "string": string_index,
+            "datetime64[ns]": pd.date_range("2011-01-01", freq="H", periods=N),
+            "datetime64[ns, tz]": pd.date_range(
+                "2011-01-01", freq="H", periods=N, tz="Asia/Tokyo"
+            ),
+            "Int64": pd.array(np.arange(N), dtype="Int64"),
+            "boolean": pd.array(np.random.randint(0, 2, N), dtype="boolean"),
+            "string_arrow": string_arrow,
+        }[dtype]
+        if not unique:
+            data = data.repeat(5)
+        self.data = data
 
-    def time_factorize(self, sort, dtype):
-        self.idx.factorize(sort=sort)
+    def time_factorize(self, unique, sort, dtype):
+        pd.factorize(self.data, sort=sort)
 
 
 class Duplicated:
 
-    params = [["first", "last", False], ["int", "uint", "float", "string"]]
-    param_names = ["keep", "dtype"]
+    params = [
+        [True, False],
+        ["first", "last", False],
+        ["int", "uint", "float", "string", "datetime64[ns]", "datetime64[ns, tz]"],
+    ]
+    param_names = ["unique", "keep", "dtype"]
 
-    def setup(self, keep, dtype):
-        N = 10 ** 5
-        data = {
-            "int": pd.Int64Index(np.arange(N).repeat(5)),
-            "uint": pd.UInt64Index(np.arange(N).repeat(5)),
-            "float": pd.Float64Index(np.random.randn(N).repeat(5)),
-            "string": tm.makeStringIndex(N).repeat(5),
-        }
-        self.idx = data[dtype]
-        # cache is_unique
-        self.idx.is_unique
-
-    def time_duplicated(self, keep, dtype):
-        self.idx.duplicated(keep=keep)
-
-
-class DuplicatedUniqueIndex:
-
-    params = ["int", "uint", "float", "string"]
-    param_names = ["dtype"]
-
-    def setup(self, dtype):
+    def setup(self, unique, keep, dtype):
         N = 10 ** 5
         data = {
             "int": pd.Int64Index(np.arange(N)),
             "uint": pd.UInt64Index(np.arange(N)),
             "float": pd.Float64Index(np.random.randn(N)),
             "string": tm.makeStringIndex(N),
-        }
-        self.idx = data[dtype]
+            "datetime64[ns]": pd.date_range("2011-01-01", freq="H", periods=N),
+            "datetime64[ns, tz]": pd.date_range(
+                "2011-01-01", freq="H", periods=N, tz="Asia/Tokyo"
+            ),
+        }[dtype]
+        if not unique:
+            data = data.repeat(5)
+        self.idx = data
         # cache is_unique
         self.idx.is_unique
 
-    def time_duplicated_unique(self, dtype):
-        self.idx.duplicated()
+    def time_duplicated(self, unique, keep, dtype):
+        self.idx.duplicated(keep=keep)
 
 
 class Hashing:

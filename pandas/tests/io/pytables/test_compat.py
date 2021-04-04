@@ -1,29 +1,34 @@
 import pytest
 
+import pandas.util._test_decorators as td
+
 import pandas as pd
+import pandas._testing as tm
 from pandas.tests.io.pytables.common import ensure_clean_path
-import pandas.util.testing as tm
 
 tables = pytest.importorskip("tables")
+
+pytestmark = td.skip_array_manager_not_yet_implemented
 
 
 @pytest.fixture
 def pytables_hdf5_file():
-    """Use PyTables to create a simple HDF5 file."""
-
+    """
+    Use PyTables to create a simple HDF5 file.
+    """
     table_schema = {
         "c0": tables.Time64Col(pos=0),
         "c1": tables.StringCol(5, pos=1),
         "c2": tables.Int64Col(pos=2),
     }
 
-    t0 = 1561105000.0
+    t0 = 1_561_105_000.0
 
     testsamples = [
         {"c0": t0, "c1": "aaaaa", "c2": 1},
         {"c0": t0 + 1, "c1": "bbbbb", "c2": 2},
         {"c0": t0 + 2, "c1": "ccccc", "c2": 10 ** 5},
-        {"c0": t0 + 3, "c1": "ddddd", "c2": 4294967295},
+        {"c0": t0 + 3, "c1": "ddddd", "c2": 4_294_967_295},
     ]
 
     objname = "pandas_test_timeseries"

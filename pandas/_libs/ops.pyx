@@ -1,24 +1,38 @@
 import operator
 
-from cpython.object cimport (PyObject_RichCompareBool,
-                             Py_EQ, Py_NE, Py_LT, Py_LE, Py_GT, Py_GE)
+from cpython.object cimport (
+    Py_EQ,
+    Py_GE,
+    Py_GT,
+    Py_LE,
+    Py_LT,
+    Py_NE,
+    PyObject_RichCompareBool,
+)
 
 import cython
 from cython import Py_ssize_t
-
 import numpy as np
-from numpy cimport ndarray, uint8_t, import_array
+
+from numpy cimport (
+    import_array,
+    ndarray,
+    uint8_t,
+)
+
 import_array()
 
 
-from pandas._libs.util cimport UINT8_MAX, is_nan
-
 from pandas._libs.missing cimport checknull
+from pandas._libs.util cimport (
+    UINT8_MAX,
+    is_nan,
+)
 
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
-def scalar_compare(object[:] values, object val, object op):
+def scalar_compare(object[:] values, object val, object op) -> ndarray:
     """
     Compare each element of `values` array with the scalar `val`, with
     the comparison operation described by `op`.
@@ -100,7 +114,7 @@ def scalar_compare(object[:] values, object val, object op):
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
-def vec_compare(object[:] left, object[:] right, object op):
+def vec_compare(ndarray[object] left, ndarray[object] right, object op) -> ndarray:
     """
     Compare the elements of `left` with the elements of `right` pointwise,
     with the comparison operation described by `op`.
@@ -166,7 +180,7 @@ def vec_compare(object[:] left, object[:] right, object op):
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
-def scalar_binop(object[:] values, object val, object op):
+def scalar_binop(object[:] values, object val, object op) -> ndarray:
     """
     Apply the given binary operator `op` between each element of the array
     `values` and the scalar `val`.
@@ -203,7 +217,7 @@ def scalar_binop(object[:] values, object val, object op):
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
-def vec_binop(object[:] left, object[:] right, object op):
+def vec_binop(object[:] left, object[:] right, object op) -> ndarray:
     """
     Apply the given binary operator `op` pointwise to the elements of
     arrays `left` and `right`.
@@ -244,7 +258,7 @@ def vec_binop(object[:] left, object[:] right, object op):
 
 
 def maybe_convert_bool(ndarray[object] arr,
-                       true_values=None, false_values=None):
+                       true_values=None, false_values=None) -> ndarray:
     cdef:
         Py_ssize_t i, n
         ndarray[uint8_t] result

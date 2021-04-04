@@ -1,7 +1,6 @@
+import pandas._testing as tm
 from pandas.api import types
-import pandas.util.testing as tm
-
-from .test_api import Base
+from pandas.tests.api.test_api import Base
 
 
 class TestTypes(Base):
@@ -50,7 +49,7 @@ class TestTypes(Base):
         "infer_dtype",
         "is_extension_array_dtype",
     ]
-    deprecated = ["is_period", "is_datetimetz", "is_extension_type"]
+    deprecated = ["is_extension_type"]
     dtypes = ["CategoricalDtype", "DatetimeTZDtype", "PeriodDtype", "IntervalDtype"]
 
     def test_types(self):
@@ -60,5 +59,5 @@ class TestTypes(Base):
     def test_deprecated_from_api_types(self):
 
         for t in self.deprecated:
-            with tm.assert_produces_warning(FutureWarning, check_stacklevel=False):
+            with tm.assert_produces_warning(FutureWarning):
                 getattr(types, t)(1)

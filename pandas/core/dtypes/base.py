@@ -1,23 +1,43 @@
-"""Extend pandas with custom array types"""
-from typing import List, Optional, Tuple, Type
+"""
+Extend pandas with custom array types.
+"""
+
+from __future__ import annotations
+
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 import numpy as np
 
+from pandas._typing import DtypeObj
 from pandas.errors import AbstractMethodError
 
-from pandas.core.dtypes.generic import ABCDataFrame, ABCIndexClass, ABCSeries
+from pandas.core.dtypes.generic import (
+    ABCDataFrame,
+    ABCIndex,
+    ABCSeries,
+)
+
+if TYPE_CHECKING:
+    from pandas.core.arrays import ExtensionArray
 
 
 class ExtensionDtype:
     """
     A custom data type, to be paired with an ExtensionArray.
 
-    .. versionadded:: 0.23.0
-
     See Also
     --------
-    extensions.register_extension_dtype
-    extensions.ExtensionArray
+    extensions.register_extension_dtype: Register an ExtensionType
+        with pandas as class decorator.
+    extensions.ExtensionArray: Abstract base class for custom 1-D array types.
 
     Notes
     -----
@@ -26,13 +46,13 @@ class ExtensionDtype:
 
     * type
     * name
-    * construct_from_string
 
-    The following attributes influence the behavior of the dtype in
+    The following attributes and methods influence the behavior of the dtype in
     pandas operations
 
     * _is_numeric
     * _is_boolean
+    * _get_common_dtype
 
     Optionally one can override construct_array_type for construction
     with the name of this dtype via the Registry. See
@@ -71,7 +91,7 @@ class ExtensionDtype:
         class ExtensionDtype:
 
             def __from_arrow__(
-                self, array: pyarrow.Array/ChunkedArray
+                self, array: Union[pyarrow.Array, pyarrow.ChunkedArray]
             ) -> ExtensionArray:
                 ...
 
@@ -81,21 +101,20 @@ class ExtensionDtype:
     provided for registering virtual subclasses.
     """
 
-    _metadata = ()  # type: Tuple[str, ...]
+    _metadata: Tuple[str, ...] = ()
 
     def __str__(self) -> str:
         return self.name
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """
         Check whether 'other' is equal to self.
 
         By default, 'other' is considered equal if either
 
         * it's a string matching 'self.name'.
-        * it's an instance of this type and all of the
-          the attributes in ``self._metadata`` are equal between
-          `self` and `other`.
+        * it's an instance of this type and all of the attributes
+          in ``self._metadata`` are equal between `self` and `other`.
 
         Parameters
         ----------
@@ -119,11 +138,11 @@ class ExtensionDtype:
     def __hash__(self) -> int:
         return hash(tuple(getattr(self, attr) for attr in self._metadata))
 
-    def __ne__(self, other) -> bool:
+    def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
     @property
-    def na_value(self):
+    def na_value(self) -> object:
         """
         Default NA value to use for this type.
 
@@ -134,7 +153,7 @@ class ExtensionDtype:
         return np.nan
 
     @property
-    def type(self) -> Type:
+    def type(self) -> Type[Any]:
         """
         The scalar type for the array, e.g. ``int``
 
@@ -181,9 +200,9 @@ class ExtensionDtype:
         return None
 
     @classmethod
-    def construct_array_type(cls):
+    def construct_array_type(cls) -> Type[ExtensionArray]:
         """
-        Return the array type associated with this dtype
+        Return the array type associated with this dtype.
 
         Returns
         -------
@@ -231,21 +250,23 @@ class ExtensionDtype:
         ...     if match:
         ...         return cls(**match.groupdict())
         ...     else:
-        ...         raise TypeError("Cannot construct a '{}' from "
-        ...                         "'{}'".format(cls.__name__, string))
+        ...         raise TypeError(
+        ...             f"Cannot construct a '{cls.__name__}' from '{string}'"
+        ...         )
         """
         if not isinstance(string, str):
-            raise TypeError("Expects a string, got {typ}".format(typ=type(string)))
-        if string != cls.name:
             raise TypeError(
-                "Cannot construct a '{cls}' from '{string}'".format(
-                    cls=cls.__name__, string=string
-                )
+                f"'construct_from_string' expects a string, got {type(string)}"
             )
+        # error: Non-overlapping equality check (left operand type: "str", right
+        #  operand type: "Callable[[ExtensionDtype], str]")  [comparison-overlap]
+        assert isinstance(cls.name, str), (cls, type(cls.name))
+        if string != cls.name:
+            raise TypeError(f"Cannot construct a '{cls.__name__}' from '{string}'")
         return cls()
 
     @classmethod
-    def is_dtype(cls, dtype) -> bool:
+    def is_dtype(cls, dtype: object) -> bool:
         """
         Check if we match 'dtype'.
 
@@ -256,7 +277,7 @@ class ExtensionDtype:
 
         Returns
         -------
-        is_dtype : bool
+        bool
 
         Notes
         -----
@@ -270,7 +291,7 @@ class ExtensionDtype:
         """
         dtype = getattr(dtype, "dtype", dtype)
 
-        if isinstance(dtype, (ABCSeries, ABCIndexClass, ABCDataFrame, np.dtype)):
+        if isinstance(dtype, (ABCSeries, ABCIndex, ABCDataFrame, np.dtype)):
             # https://github.com/pandas-dev/pandas/issues/22960
             # avoid passing data to `construct_from_string`. This could
             # cause a FutureWarning from numpy about failing elementwise
@@ -280,10 +301,12 @@ class ExtensionDtype:
             return False
         elif isinstance(dtype, cls):
             return True
-        try:
-            return cls.construct_from_string(dtype) is not None
-        except TypeError:
-            return False
+        if isinstance(dtype, str):
+            try:
+                return cls.construct_from_string(dtype) is not None
+            except TypeError:
+                return False
+        return False
 
     @property
     def _is_numeric(self) -> bool:
@@ -313,3 +336,120 @@ class ExtensionDtype:
         bool
         """
         return False
+
+    def _get_common_dtype(self, dtypes: List[DtypeObj]) -> Optional[DtypeObj]:
+        """
+        Return the common dtype, if one exists.
+
+        Used in `find_common_type` implementation. This is for example used
+        to determine the resulting dtype in a concat operation.
+
+        If no common dtype exists, return None (which gives the other dtypes
+        the chance to determine a common dtype). If all dtypes in the list
+        return None, then the common dtype will be "object" dtype (this means
+        it is never needed to return "object" dtype from this method itself).
+
+        Parameters
+        ----------
+        dtypes : list of dtypes
+            The dtypes for which to determine a common dtype. This is a list
+            of np.dtype or ExtensionDtype instances.
+
+        Returns
+        -------
+        Common dtype (np.dtype or ExtensionDtype) or None
+        """
+        if len(set(dtypes)) == 1:
+            # only itself
+            return self
+        else:
+            return None
+
+
+def register_extension_dtype(cls: Type[ExtensionDtype]) -> Type[ExtensionDtype]:
+    """
+    Register an ExtensionType with pandas as class decorator.
+
+    .. versionadded:: 0.24.0
+
+    This enables operations like ``.astype(name)`` for the name
+    of the ExtensionDtype.
+
+    Returns
+    -------
+    callable
+        A class decorator.
+
+    Examples
+    --------
+    >>> from pandas.api.extensions import register_extension_dtype
+    >>> from pandas.api.extensions import ExtensionDtype
+    >>> @register_extension_dtype
+    ... class MyExtensionDtype(ExtensionDtype):
+    ...     name = "myextension"
+    """
+    _registry.register(cls)
+    return cls
+
+
+class Registry:
+    """
+    Registry for dtype inference.
+
+    The registry allows one to map a string repr of a extension
+    dtype to an extension dtype. The string alias can be used in several
+    places, including
+
+    * Series and Index constructors
+    * :meth:`pandas.array`
+    * :meth:`pandas.Series.astype`
+
+    Multiple extension types can be registered.
+    These are tried in order.
+    """
+
+    def __init__(self):
+        self.dtypes: List[Type[ExtensionDtype]] = []
+
+    def register(self, dtype: Type[ExtensionDtype]) -> None:
+        """
+        Parameters
+        ----------
+        dtype : ExtensionDtype class
+        """
+        if not issubclass(dtype, ExtensionDtype):
+            raise ValueError("can only register pandas extension dtypes")
+
+        self.dtypes.append(dtype)
+
+    def find(
+        self, dtype: Union[Type[ExtensionDtype], str]
+    ) -> Optional[Type[ExtensionDtype]]:
+        """
+        Parameters
+        ----------
+        dtype : Type[ExtensionDtype] or str
+
+        Returns
+        -------
+        return the first matching dtype, otherwise return None
+        """
+        if not isinstance(dtype, str):
+            dtype_type = dtype
+            if not isinstance(dtype, type):
+                dtype_type = type(dtype)
+            if issubclass(dtype_type, ExtensionDtype):
+                return dtype
+
+            return None
+
+        for dtype_type in self.dtypes:
+            try:
+                return dtype_type.construct_from_string(dtype)
+            except TypeError:
+                pass
+
+        return None
+
+
+_registry = Registry()

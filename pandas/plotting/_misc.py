@@ -1,7 +1,4 @@
 from contextlib import contextmanager
-import warnings
-
-from pandas.util._decorators import deprecate_kwarg
 
 from pandas.plotting._core import _get_plot_backend
 
@@ -32,10 +29,10 @@ def table(ax, data, rowLabels=None, colLabels=None, **kwargs):
 
 def register():
     """
-    Register Pandas Formatters and Converters with matplotlib.
+    Register pandas formatters and converters with matplotlib.
 
     This function modifies the global ``matplotlib.units.registry``
-    dictionary. Pandas adds custom converters for
+    dictionary. pandas adds custom converters for
 
     * pd.Timestamp
     * pd.Period
@@ -46,7 +43,7 @@ def register():
 
     See Also
     --------
-    deregister_matplotlib_converters
+    deregister_matplotlib_converters : Remove pandas formatters and converters.
     """
     plot_backend = _get_plot_backend("matplotlib")
     plot_backend.register()
@@ -54,7 +51,7 @@ def register():
 
 def deregister():
     """
-    Remove pandas' formatters and converters.
+    Remove pandas formatters and converters.
 
     Removes the custom converters added by :func:`register`. This
     attempts to set the state of the registry back to the state before
@@ -65,7 +62,8 @@ def deregister():
 
     See Also
     --------
-    register_matplotlib_converters
+    register_matplotlib_converters : Register pandas formatters and converters
+        with matplotlib.
     """
     plot_backend = _get_plot_backend("matplotlib")
     plot_backend.deregister()
@@ -119,8 +117,12 @@ def scatter_matrix(
 
     Examples
     --------
-    >>> df = pd.DataFrame(np.random.randn(1000, 4), columns=['A','B','C','D'])
-    >>> scatter_matrix(df, alpha=0.2)
+
+    .. plot::
+        :context: close-figs
+
+        >>> df = pd.DataFrame(np.random.randn(1000, 4), columns=['A','B','C','D'])
+        >>> pd.plotting.scatter_matrix(df, alpha=0.2)
     """
     plot_backend = _get_plot_backend("matplotlib")
     return plot_backend.scatter_matrix(
@@ -152,13 +154,13 @@ def radviz(frame, class_column, ax=None, color=None, colormap=None, **kwds):
     influence of all dimensions.
 
     More info available at the `original article
-    <http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.135.889>`_
+    <https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.135.889>`_
     describing RadViz.
 
     Parameters
     ----------
     frame : `DataFrame`
-        Pandas object holding the data.
+        Object holding the data.
     class_column : str
         Column name containing the name of the data point category.
     ax : :class:`matplotlib.axes.Axes`, optional
@@ -181,24 +183,31 @@ def radviz(frame, class_column, ax=None, color=None, colormap=None, **kwds):
 
     Examples
     --------
+
     .. plot::
         :context: close-figs
 
-        >>> df = pd.DataFrame({
-        ...         'SepalLength': [6.5, 7.7, 5.1, 5.8, 7.6, 5.0, 5.4, 4.6,
-        ...                         6.7, 4.6],
-        ...         'SepalWidth': [3.0, 3.8, 3.8, 2.7, 3.0, 2.3, 3.0, 3.2,
-        ...                        3.3, 3.6],
-        ...         'PetalLength': [5.5, 6.7, 1.9, 5.1, 6.6, 3.3, 4.5, 1.4,
-        ...                         5.7, 1.0],
-        ...         'PetalWidth': [1.8, 2.2, 0.4, 1.9, 2.1, 1.0, 1.5, 0.2,
-        ...                        2.1, 0.2],
-        ...         'Category': ['virginica', 'virginica', 'setosa',
-        ...                      'virginica', 'virginica', 'versicolor',
-        ...                      'versicolor', 'setosa', 'virginica',
-        ...                      'setosa']
-        ...     })
-        >>> rad_viz = pd.plotting.radviz(df, 'Category')  # doctest: +SKIP
+        >>> df = pd.DataFrame(
+        ...     {
+        ...         'SepalLength': [6.5, 7.7, 5.1, 5.8, 7.6, 5.0, 5.4, 4.6, 6.7, 4.6],
+        ...         'SepalWidth': [3.0, 3.8, 3.8, 2.7, 3.0, 2.3, 3.0, 3.2, 3.3, 3.6],
+        ...         'PetalLength': [5.5, 6.7, 1.9, 5.1, 6.6, 3.3, 4.5, 1.4, 5.7, 1.0],
+        ...         'PetalWidth': [1.8, 2.2, 0.4, 1.9, 2.1, 1.0, 1.5, 0.2, 2.1, 0.2],
+        ...         'Category': [
+        ...             'virginica',
+        ...             'virginica',
+        ...             'setosa',
+        ...             'virginica',
+        ...             'virginica',
+        ...             'versicolor',
+        ...             'versicolor',
+        ...             'setosa',
+        ...             'virginica',
+        ...             'setosa'
+        ...         ]
+        ...     }
+        ... )
+        >>> pd.plotting.radviz(df, 'Category')
     """
     plot_backend = _get_plot_backend("matplotlib")
     return plot_backend.radviz(
@@ -211,7 +220,6 @@ def radviz(frame, class_column, ax=None, color=None, colormap=None, **kwds):
     )
 
 
-@deprecate_kwarg(old_arg_name="data", new_arg_name="frame")
 def andrews_curves(
     frame, class_column, ax=None, samples=200, color=None, colormap=None, **kwargs
 ):
@@ -246,6 +254,18 @@ def andrews_curves(
     Returns
     -------
     class:`matplotlip.axis.Axes`
+
+    Examples
+    --------
+
+    .. plot::
+        :context: close-figs
+
+        >>> df = pd.read_csv(
+        ...     'https://raw.github.com/pandas-dev/'
+        ...     'pandas/master/pandas/tests/io/data/csv/iris.csv'
+        ... )
+        >>> pd.plotting.andrews_curves(df, 'Name')
     """
     plot_backend = _get_plot_backend("matplotlib")
     return plot_backend.andrews_curves(
@@ -274,13 +294,13 @@ def bootstrap_plot(series, fig=None, size=50, samples=500, **kwds):
     Parameters
     ----------
     series : pandas.Series
-        Pandas Series from where to get the samplings for the bootstrapping.
+        Series from where to get the samplings for the bootstrapping.
     fig : matplotlib.figure.Figure, default None
         If given, it will use the `fig` reference for plotting instead of
         creating a new one with default parameters.
     size : int, default 50
         Number of data points to consider during each sampling. It must be
-        greater or equal than the length of the `series`.
+        less than or equal to the length of the `series`.
     samples : int, default 500
         Number of times the bootstrap procedure is performed.
     **kwds
@@ -298,12 +318,13 @@ def bootstrap_plot(series, fig=None, size=50, samples=500, **kwds):
 
     Examples
     --------
+    This example draws a basic bootstrap plot for a Series.
 
     .. plot::
-            :context: close-figs
+        :context: close-figs
 
-            >>> s = pd.Series(np.random.uniform(size=100))
-            >>> fig = pd.plotting.bootstrap_plot(s)  # doctest: +SKIP
+        >>> s = pd.Series(np.random.uniform(size=100))
+        >>> pd.plotting.bootstrap_plot(s)
     """
     plot_backend = _get_plot_backend("matplotlib")
     return plot_backend.bootstrap_plot(
@@ -311,8 +332,6 @@ def bootstrap_plot(series, fig=None, size=50, samples=500, **kwds):
     )
 
 
-@deprecate_kwarg(old_arg_name="colors", new_arg_name="color")
-@deprecate_kwarg(old_arg_name="data", new_arg_name="frame", stacklevel=3)
 def parallel_coordinates(
     frame,
     class_column,
@@ -362,13 +381,17 @@ def parallel_coordinates(
 
     Examples
     --------
-    >>> from matplotlib import pyplot as plt
-    >>> df = pd.read_csv('https://raw.github.com/pandas-dev/pandas/master'
-                        '/pandas/tests/data/csv/iris.csv')
-    >>> pd.plotting.parallel_coordinates(
-            df, 'Name',
-            color=('#556270', '#4ECDC4', '#C7F464'))
-    >>> plt.show()
+
+    .. plot::
+        :context: close-figs
+
+        >>> df = pd.read_csv(
+        ...     'https://raw.github.com/pandas-dev/'
+        ...     'pandas/master/pandas/tests/io/data/csv/iris.csv'
+        ... )
+        >>> pd.plotting.parallel_coordinates(
+        ...     df, 'Name', color=('#556270', '#4ECDC4', '#C7F464')
+        ... )
     """
     plot_backend = _get_plot_backend("matplotlib")
     return plot_backend.parallel_coordinates(
@@ -402,6 +425,28 @@ def lag_plot(series, lag=1, ax=None, **kwds):
     Returns
     -------
     class:`matplotlib.axis.Axes`
+
+    Examples
+    --------
+
+    Lag plots are most commonly used to look for patterns in time series data.
+
+    Given the following time series
+
+    .. plot::
+        :context: close-figs
+
+        >>> np.random.seed(5)
+        >>> x = np.cumsum(np.random.normal(loc=1, scale=5, size=50))
+        >>> s = pd.Series(x)
+        >>> s.plot()
+
+    A lag plot with ``lag=1`` returns
+
+    .. plot::
+        :context: close-figs
+
+        >>> pd.plotting.lag_plot(s, lag=1)
     """
     plot_backend = _get_plot_backend("matplotlib")
     return plot_backend.lag_plot(series=series, lag=lag, ax=ax, **kwds)
@@ -421,36 +466,23 @@ def autocorrelation_plot(series, ax=None, **kwargs):
     Returns
     -------
     class:`matplotlib.axis.Axes`
+
+    Examples
+    --------
+
+    The horizontal lines in the plot correspond to 95% and 99% confidence bands.
+
+    The dashed line is 99% confidence band.
+
+    .. plot::
+        :context: close-figs
+
+        >>> spacing = np.linspace(-9 * np.pi, 9 * np.pi, num=1000)
+        >>> s = pd.Series(0.7 * np.random.rand(1000) + 0.3 * np.sin(spacing))
+        >>> pd.plotting.autocorrelation_plot(s)
     """
     plot_backend = _get_plot_backend("matplotlib")
     return plot_backend.autocorrelation_plot(series=series, ax=ax, **kwargs)
-
-
-def tsplot(series, plotf, ax=None, **kwargs):
-    """
-    Plots a Series on the given Matplotlib axes or the current axes
-
-    Parameters
-    ----------
-    axes : Axes
-    series : Series
-
-    Notes
-    _____
-    Supports same kwargs as Axes.plot
-
-
-    .. deprecated:: 0.23.0
-       Use Series.plot() instead
-    """
-    warnings.warn(
-        "'tsplot' is deprecated and will be removed in a "
-        "future version. Please use Series.plot() instead.",
-        FutureWarning,
-        stacklevel=2,
-    )
-    plot_backend = _get_plot_backend("matplotlib")
-    return plot_backend.tsplot(series=series, plotf=plotf, ax=ax, **kwargs)
 
 
 class _Options(dict):
@@ -468,15 +500,12 @@ class _Options(dict):
 
     def __init__(self, deprecated=False):
         self._deprecated = deprecated
-        # self['xaxis.compat'] = False
         super().__setitem__("xaxis.compat", False)
 
     def __getitem__(self, key):
         key = self._get_canonical_key(key)
         if key not in self:
-            raise ValueError(
-                "{key} is not a valid pandas plotting option".format(key=key)
-            )
+            raise ValueError(f"{key} is not a valid pandas plotting option")
         return super().__getitem__(key)
 
     def __setitem__(self, key, value):
@@ -486,10 +515,10 @@ class _Options(dict):
     def __delitem__(self, key):
         key = self._get_canonical_key(key)
         if key in self._DEFAULT_KEYS:
-            raise ValueError("Cannot remove default parameter {key}".format(key=key))
+            raise ValueError(f"Cannot remove default parameter {key}")
         return super().__delitem__(key)
 
-    def __contains__(self, key):
+    def __contains__(self, key) -> bool:
         key = self._get_canonical_key(key)
         return super().__contains__(key)
 
@@ -501,7 +530,8 @@ class _Options(dict):
         -------
         None
         """
-        self.__init__()
+        # error: Cannot access "__init__" directly
+        self.__init__()  # type: ignore[misc]
 
     def _get_canonical_key(self, key):
         return self._ALIASES.get(key, key)

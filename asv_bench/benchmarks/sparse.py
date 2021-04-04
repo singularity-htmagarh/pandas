@@ -2,7 +2,12 @@ import numpy as np
 import scipy.sparse
 
 import pandas as pd
-from pandas import MultiIndex, Series, SparseArray, date_range
+from pandas import (
+    MultiIndex,
+    Series,
+    date_range,
+)
+from pandas.arrays import SparseArray
 
 
 def make_array(size, dense_proportion, fill_value, dtype):
@@ -23,7 +28,7 @@ class SparseSeriesToFrame:
             data = np.random.randn(N)[:-i]
             idx = rng[:-i]
             data[100:] = np.nan
-            self.series[i] = pd.Series(pd.SparseArray(data), index=idx)
+            self.series[i] = Series(SparseArray(data), index=idx)
 
     def time_series_to_frame(self):
         pd.DataFrame(self.series)
@@ -31,7 +36,7 @@ class SparseSeriesToFrame:
 
 class SparseArrayConstructor:
 
-    params = ([0.1, 0.01], [0, np.nan], [np.int64, np.float64, np.object])
+    params = ([0.1, 0.01], [0, np.nan], [np.int64, np.float64, object])
     param_names = ["dense_proportion", "fill_value", "dtype"]
 
     def setup(self, dense_proportion, fill_value, dtype):
@@ -45,7 +50,6 @@ class SparseArrayConstructor:
 class SparseDataFrameConstructor:
     def setup(self):
         N = 1000
-        self.arr = np.arange(N)
         self.sparse = scipy.sparse.rand(N, N, 0.005)
 
     def time_from_scipy(self):
@@ -59,7 +63,7 @@ class FromCoo:
         )
 
     def time_sparse_series_from_coo(self):
-        pd.Series.sparse.from_coo(self.matrix)
+        Series.sparse.from_coo(self.matrix)
 
 
 class ToCoo:

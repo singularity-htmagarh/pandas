@@ -44,7 +44,14 @@ __version__ = "1.7.0"
 
 import contextlib
 import ctypes
-from ctypes import c_size_t, c_wchar, c_wchar_p, get_errno, sizeof
+from ctypes import (
+    c_size_t,
+    c_wchar,
+    c_wchar_p,
+    get_errno,
+    sizeof,
+)
+import distutils.spawn
 import os
 import platform
 import subprocess
@@ -59,7 +66,7 @@ HAS_DISPLAY = os.getenv("DISPLAY", False)
 EXCEPT_MSG = """
     Pyperclip could not find a copy/paste mechanism for your system.
     For more information, please visit
-    https://pyperclip.readthedocs.io/en/latest/introduction.html#not-implemented-error
+    https://pyperclip.readthedocs.io/en/latest/#not-implemented-error
     """
 
 ENCODING = "utf-8"
@@ -87,16 +94,16 @@ class PyperclipException(RuntimeError):
 
 class PyperclipWindowsException(PyperclipException):
     def __init__(self, message):
-        message += " (%s)" % ctypes.WinError()
+        message += f" ({ctypes.WinError()})"
         super().__init__(message)
 
 
-def _stringifyText(text):
+def _stringifyText(text) -> str:
     acceptedTypes = (str, int, float, bool)
     if not isinstance(text, acceptedTypes):
         raise PyperclipException(
-            f"only str, int, float, and bool values"
-            f"can be copied to the clipboard, not {text.__class__.__name__}"
+            f"only str, int, float, and bool values "
+            f"can be copied to the clipboard, not {type(text).__name__}"
         )
     return str(text)
 
@@ -126,7 +133,7 @@ def init_osx_pyobjc_clipboard():
         board.setData_forType_(newData, AppKit.NSStringPboardType)
 
     def paste_osx_pyobjc():
-        "Returns contents of clipboard"
+        """Returns contents of clipboard"""
         board = AppKit.NSPasteboard.generalPasteboard()
         content = board.stringForType_(AppKit.NSStringPboardType)
         return content
@@ -156,7 +163,7 @@ def init_qt_clipboard():
         cb = app.clipboard()
         cb.setText(text)
 
-    def paste_qt():
+    def paste_qt() -> str:
         cb = app.clipboard()
         return str(cb.text())
 
@@ -270,14 +277,12 @@ def init_dev_clipboard_clipboard():
         if "\r" in text:
             warnings.warn("Pyperclip cannot handle \\r characters on Cygwin.")
 
-        fo = open("/dev/clipboard", "wt")
-        fo.write(text)
-        fo.close()
+        with open("/dev/clipboard", "wt") as fd:
+            fd.write(text)
 
-    def paste_dev_clipboard():
-        fo = open("/dev/clipboard", "rt")
-        content = fo.read()
-        fo.close()
+    def paste_dev_clipboard() -> str:
+        with open("/dev/clipboard") as fd:
+            content = fd.read()
         return content
 
     return copy_dev_clipboard, paste_dev_clipboard
@@ -288,7 +293,7 @@ def init_no_clipboard():
         def __call__(self, *args, **kwargs):
             raise PyperclipException(EXCEPT_MSG)
 
-        def __bool__(self):
+        def __bool__(self) -> bool:
             return False
 
     return ClipboardUnavailable(), ClipboardUnavailable()
@@ -313,17 +318,17 @@ def init_windows_clipboard():
     global HGLOBAL, LPVOID, DWORD, LPCSTR, INT
     global HWND, HINSTANCE, HMENU, BOOL, UINT, HANDLE
     from ctypes.wintypes import (
-        HGLOBAL,
-        LPVOID,
+        BOOL,
         DWORD,
-        LPCSTR,
-        INT,
-        HWND,
+        HANDLE,
+        HGLOBAL,
         HINSTANCE,
         HMENU,
-        BOOL,
+        HWND,
+        INT,
+        LPCSTR,
+        LPVOID,
         UINT,
-        HANDLE,
     )
 
     windll = ctypes.windll
@@ -496,13 +501,12 @@ def init_wsl_clipboard():
 
 
 # Automatic detection of clipboard mechanisms
-# and importing is done in deteremine_clipboard():
+# and importing is done in determine_clipboard():
 def determine_clipboard():
     """
     Determine the OS/platform and set the copy() and paste() functions
     accordingly.
     """
-
     global Foundation, AppKit, qtpy, PyQt4, PyQt5
 
     # Setup for the CYGWIN platform:
@@ -524,15 +528,14 @@ def determine_clipboard():
         return init_windows_clipboard()
 
     if platform.system() == "Linux":
-        with open("/proc/version", "r") as f:
-            if "Microsoft" in f.read():
-                return init_wsl_clipboard()
+        if distutils.spawn.find_executable("wslconfig.exe"):
+            return init_wsl_clipboard()
 
     # Setup for the MAC OS X platform:
     if os.name == "mac" or platform.system() == "Darwin":
         try:
-            import Foundation  # check if pyobjc is installed
             import AppKit
+            import Foundation  # check if pyobjc is installed
         except ImportError:
             return init_osx_pbcopy_clipboard()
         else:
@@ -599,9 +602,9 @@ def set_clipboard(clipboard):
     }
 
     if clipboard not in clipboard_types:
+        allowed_clipboard_types = [repr(_) for _ in clipboard_types.keys()]
         raise ValueError(
-            "Argument must be one of %s"
-            % (", ".join([repr(_) for _ in clipboard_types.keys()]))
+            f"Argument must be one of {', '.join(allowed_clipboard_types)}"
         )
 
     # Sets pyperclip's copy() and paste() functions:
@@ -652,7 +655,7 @@ def lazy_load_stub_paste():
     return paste()
 
 
-def is_available():
+def is_available() -> bool:
     return copy != lazy_load_stub_copy and paste != lazy_load_stub_paste
 
 

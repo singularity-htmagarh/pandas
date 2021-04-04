@@ -7,10 +7,14 @@ from io import StringIO
 import numpy as np
 import pytest
 
-from pandas import DataFrame, Index, MultiIndex
-import pandas.util.testing as tm
+from pandas._libs.parsers import STR_NA_VALUES
 
-import pandas.io.common as com
+from pandas import (
+    DataFrame,
+    Index,
+    MultiIndex,
+)
+import pandas._testing as tm
 
 
 def test_string_nas(all_parsers):
@@ -89,6 +93,7 @@ def test_default_na_values(all_parsers):
         "N/A",
         "n/a",
         "NA",
+        "<NA>",
         "#NA",
         "NULL",
         "null",
@@ -99,7 +104,7 @@ def test_default_na_values(all_parsers):
         "#N/A N/A",
         "",
     }
-    assert _NA_VALUES == com._NA_VALUES
+    assert _NA_VALUES == STR_NA_VALUES
 
     parser = all_parsers
     nv = len(_NA_VALUES)
@@ -110,10 +115,11 @@ def test_default_na_values(all_parsers):
         elif i > 0:
             buf = "".join([","] * i)
 
-        buf = "{0}{1}".format(buf, v)
+        buf = f"{buf}{v}"
 
         if i < nv - 1:
-            buf = "{0}{1}".format(buf, "".join([","] * (nv - i - 1)))
+            joined = "".join([","] * (nv - i - 1))
+            buf = f"{buf}{joined}"
 
         return buf
 
@@ -212,7 +218,7 @@ a,b,c,d
     "kwargs,expected",
     [
         (
-            dict(),
+            {},
             DataFrame(
                 {
                     "A": ["a", "b", np.nan, "d", "e", np.nan, "g"],
@@ -222,7 +228,7 @@ a,b,c,d
             ),
         ),
         (
-            dict(na_values={"A": [], "C": []}, keep_default_na=False),
+            {"na_values": {"A": [], "C": []}, "keep_default_na": False},
             DataFrame(
                 {
                     "A": ["a", "b", "", "d", "e", "nan", "g"],
@@ -232,7 +238,7 @@ a,b,c,d
             ),
         ),
         (
-            dict(na_values=["a"], keep_default_na=False),
+            {"na_values": ["a"], "keep_default_na": False},
             DataFrame(
                 {
                     "A": [np.nan, "b", "", "d", "e", "nan", "g"],
@@ -242,7 +248,7 @@ a,b,c,d
             ),
         ),
         (
-            dict(na_values={"A": [], "C": []}),
+            {"na_values": {"A": [], "C": []}},
             DataFrame(
                 {
                     "A": ["a", "b", np.nan, "d", "e", np.nan, "g"],
@@ -443,11 +449,11 @@ def test_na_values_dict_col_index(all_parsers):
     [
         (
             str(2 ** 63) + "\n" + str(2 ** 63 + 1),
-            dict(na_values=[2 ** 63]),
+            {"na_values": [2 ** 63]},
             DataFrame([str(2 ** 63), str(2 ** 63 + 1)]),
         ),
-        (str(2 ** 63) + ",1" + "\n,2", dict(), DataFrame([[str(2 ** 63), 1], ["", 2]])),
-        (str(2 ** 63) + "\n1", dict(na_values=[2 ** 63]), DataFrame([np.nan, 1])),
+        (str(2 ** 63) + ",1" + "\n,2", {}, DataFrame([[str(2 ** 63), 1], ["", 2]])),
+        (str(2 ** 63) + "\n1", {"na_values": [2 ** 63]}, DataFrame([np.nan, 1])),
     ],
 )
 def test_na_values_uint64(all_parsers, data, kwargs, expected):

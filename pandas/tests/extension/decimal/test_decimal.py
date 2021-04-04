@@ -6,10 +6,15 @@ import numpy as np
 import pytest
 
 import pandas as pd
+import pandas._testing as tm
+from pandas.api.types import infer_dtype
 from pandas.tests.extension import base
-import pandas.util.testing as tm
-
-from .array import DecimalArray, DecimalDtype, make_data, to_decimal
+from pandas.tests.extension.decimal.array import (
+    DecimalArray,
+    DecimalDtype,
+    make_data,
+    to_decimal,
+)
 
 
 @pytest.fixture
@@ -66,7 +71,8 @@ def data_for_grouping():
 
 
 class BaseDecimal:
-    def assert_series_equal(self, left, right, *args, **kwargs):
+    @classmethod
+    def assert_series_equal(cls, left, right, *args, **kwargs):
         def convert(x):
             # need to convert array([Decimal(NaN)], dtype='object') to np.NaN
             # because Series[object].isnan doesn't recognize decimal(NaN) as
@@ -88,7 +94,8 @@ class BaseDecimal:
         tm.assert_series_equal(left_na, right_na)
         return tm.assert_series_equal(left[~left_na], right[~right_na], *args, **kwargs)
 
-    def assert_frame_equal(self, left, right, *args, **kwargs):
+    @classmethod
+    def assert_frame_equal(cls, left, right, *args, **kwargs):
         # TODO(EA): select_dtypes
         tm.assert_index_equal(
             left.columns,
@@ -97,13 +104,13 @@ class BaseDecimal:
             check_names=kwargs.get("check_names", True),
             check_exact=kwargs.get("check_exact", False),
             check_categorical=kwargs.get("check_categorical", True),
-            obj="{obj}.columns".format(obj=kwargs.get("obj", "DataFrame")),
+            obj=f"{kwargs.get('obj', 'DataFrame')}.columns",
         )
 
         decimals = (left.dtypes == "decimal").index
 
         for col in decimals:
-            self.assert_series_equal(left[col], right[col], *args, **kwargs)
+            cls.assert_series_equal(left[col], right[col], *args, **kwargs)
 
         left = left.drop(columns=decimals)
         right = right.drop(columns=decimals)
@@ -114,16 +121,20 @@ class TestDtype(BaseDecimal, base.BaseDtypeTests):
     def test_hashable(self, dtype):
         pass
 
+    @pytest.mark.parametrize("skipna", [True, False])
+    def test_infer_dtype(self, data, data_missing, skipna):
+        # here overriding base test to ensure we fall back to return
+        # "unknown-array" for an EA pandas doesn't know
+        assert infer_dtype(data, skipna=skipna) == "unknown-array"
+        assert infer_dtype(data_missing, skipna=skipna) == "unknown-array"
+
 
 class TestInterface(BaseDecimal, base.BaseInterfaceTests):
     pass
 
 
 class TestConstructors(BaseDecimal, base.BaseConstructorsTests):
-    @pytest.mark.skip(reason="not implemented constructor from dtype")
-    def test_from_dtype(self, data):
-        # construct from our dtype & string dtype
-        pass
+    pass
 
 
 class TestReshaping(BaseDecimal, base.BaseReshapingTests):
@@ -145,8 +156,9 @@ class TestMissing(BaseDecimal, base.BaseMissingTests):
 class Reduce:
     def check_reduce(self, s, op_name, skipna):
 
-        if skipna or op_name in ["median", "skew", "kurt"]:
-            with pytest.raises(NotImplementedError):
+        if op_name in ["median", "skew", "kurt"]:
+            msg = r"decimal does not support the .* operation"
+            with pytest.raises(NotImplementedError, match=msg):
                 getattr(s, op_name)(skipna=skipna)
 
         else:
@@ -165,18 +177,27 @@ class TestBooleanReduce(Reduce, base.BaseBooleanReduceTests):
 
 class TestMethods(BaseDecimal, base.BaseMethodsTests):
     @pytest.mark.parametrize("dropna", [True, False])
-    @pytest.mark.xfail(reason="value_counts not implemented yet.")
-    def test_value_counts(self, all_data, dropna):
+    def test_value_counts(self, all_data, dropna, request):
         all_data = all_data[:10]
         if dropna:
             other = np.array(all_data[~all_data.isna()])
         else:
             other = all_data
 
-        result = pd.Series(all_data).value_counts(dropna=dropna).sort_index()
-        expected = pd.Series(other).value_counts(dropna=dropna).sort_index()
+        vcs = pd.Series(all_data).value_counts(dropna=dropna)
+        vcs_ex = pd.Series(other).value_counts(dropna=dropna)
+
+        with decimal.localcontext() as ctx:
+            # avoid raising when comparing Decimal("NAN") < Decimal(2)
+            ctx.traps[decimal.InvalidOperation] = False
+
+            result = vcs.sort_index()
+            expected = vcs_ex.sort_index()
 
         tm.assert_series_equal(result, expected)
+
+    def test_value_counts_with_normalize(self, data):
+        return super().test_value_counts_with_normalize(data)
 
 
 class TestCasting(BaseDecimal, base.BaseCastingTests):
@@ -184,11 +205,8 @@ class TestCasting(BaseDecimal, base.BaseCastingTests):
 
 
 class TestGroupby(BaseDecimal, base.BaseGroupbyTests):
-    @pytest.mark.xfail(
-        reason="needs to correctly define __eq__ to handle nans, xref #27081."
-    )
-    def test_groupby_apply_identity(self, data_for_grouping):
-        super().test_groupby_apply_identity(data_for_grouping)
+    def test_groupby_agg_extension(self, data_for_grouping):
+        super().test_groupby_agg_extension(data_for_grouping)
 
 
 class TestSetitem(BaseDecimal, base.BaseSetitemTests):
@@ -243,7 +261,18 @@ def test_dataframe_constructor_with_dtype():
     tm.assert_frame_equal(result, expected)
 
 
-@pytest.mark.parametrize("frame", [True, False])
+@pytest.mark.parametrize(
+    "frame",
+    [
+        pytest.param(
+            True,
+            marks=pytest.mark.xfail(
+                reason="pd.concat call inside NDFrame.astype reverts the dtype"
+            ),
+        ),
+        False,
+    ],
+)
 def test_astype_dispatches(frame):
     # This is a dtype-specific test that ensures Series[decimal].astype
     # gets all the way through to ExtensionArray.astype
@@ -293,9 +322,6 @@ class TestArithmeticOps(BaseDecimal, base.BaseArithmeticOpsTests):
     def _check_divmod_op(self, s, op, other, exc=NotImplementedError):
         # We implement divmod
         super()._check_divmod_op(s, op, other, exc=None)
-
-    def test_error(self):
-        pass
 
 
 class TestComparisonOps(BaseDecimal, base.BaseComparisonOpsTests):
@@ -478,3 +504,38 @@ def test_groupby_agg_ea_method(monkeypatch):
     s = pd.Series(DecimalArray(data))
     result = s.groupby(np.array([0, 0, 0, 1, 1])).agg(lambda x: x.values.my_sum())
     tm.assert_series_equal(result, expected, check_names=False)
+
+
+def test_indexing_no_materialize(monkeypatch):
+    # See https://github.com/pandas-dev/pandas/issues/29708
+    # Ensure that indexing operations do not materialize (convert to a numpy
+    # array) the ExtensionArray unnecessary
+
+    def DecimalArray__array__(self, dtype=None):
+        raise Exception("tried to convert a DecimalArray to a numpy array")
+
+    monkeypatch.setattr(DecimalArray, "__array__", DecimalArray__array__, raising=False)
+
+    data = make_data()
+    s = pd.Series(DecimalArray(data))
+    df = pd.DataFrame({"a": s, "b": range(len(s))})
+
+    # ensure the following operations do not raise an error
+    s[s > 0.5]
+    df[s > 0.5]
+    s.at[0]
+    df.at[0, "a"]
+
+
+def test_to_numpy_keyword():
+    # test the extra keyword
+    values = [decimal.Decimal("1.1111"), decimal.Decimal("2.2222")]
+    expected = np.array(
+        [decimal.Decimal("1.11"), decimal.Decimal("2.22")], dtype="object"
+    )
+    a = pd.array(values, dtype="decimal")
+    result = a.to_numpy(decimals=2)
+    tm.assert_numpy_array_equal(result, expected)
+
+    result = pd.Series(a).to_numpy(decimals=2)
+    tm.assert_numpy_array_equal(result, expected)

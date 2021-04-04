@@ -9,7 +9,7 @@ import numpy as np
 from pandas import offsets
 
 try:
-    import pandas.tseries.holiday  # noqa
+    import pandas.tseries.holiday
 except ImportError:
     pass
 
@@ -59,7 +59,7 @@ class OnOffset:
 
     def time_on_offset(self, offset):
         for date in self.dates:
-            offset.onOffset(date)
+            offset.is_on_offset(date)
 
 
 class OffestDatetimeArithmetic:

@@ -1,101 +1,32 @@
 """Common utility functions for rolling operations"""
 from collections import defaultdict
+from typing import cast
 import warnings
 
 import numpy as np
 
-from pandas.core.dtypes.common import is_integer
-from pandas.core.dtypes.generic import ABCDataFrame, ABCSeries
+from pandas.core.dtypes.generic import (
+    ABCDataFrame,
+    ABCSeries,
+)
 
-import pandas.core.common as com
-from pandas.core.generic import _shared_docs
-from pandas.core.groupby.base import GroupByMixin
-from pandas.core.index import MultiIndex
-
-_shared_docs = dict(**_shared_docs)
-_doc_template = """
-        Returns
-        -------
-        Series or DataFrame
-            Return type is determined by the caller.
-
-        See Also
-        --------
-        Series.%(name)s : Series %(name)s.
-        DataFrame.%(name)s : DataFrame %(name)s.
-"""
+from pandas.core.indexes.api import MultiIndex
 
 
-def _dispatch(name: str, *args, **kwargs):
-    """
-    Dispatch to apply.
-    """
-
-    def outer(self, *args, **kwargs):
-        def f(x):
-            x = self._shallow_copy(x, groupby=self._groupby)
-            return getattr(x, name)(*args, **kwargs)
-
-        return self._groupby.apply(f)
-
-    outer.__name__ = name
-    return outer
-
-
-class WindowGroupByMixin(GroupByMixin):
-    """
-    Provide the groupby facilities.
-    """
-
-    def __init__(self, obj, *args, **kwargs):
-        kwargs.pop("parent", None)
-        groupby = kwargs.pop("groupby", None)
-        if groupby is None:
-            groupby, obj = obj, obj.obj
-        self._groupby = groupby
-        self._groupby.mutated = True
-        self._groupby.grouper.mutated = True
-        super().__init__(obj, *args, **kwargs)
-
-    count = _dispatch("count")
-    corr = _dispatch("corr", other=None, pairwise=None)
-    cov = _dispatch("cov", other=None, pairwise=None)
-
-    def _apply(
-        self, func, name=None, window=None, center=None, check_minp=None, **kwargs
-    ):
-        """
-        Dispatch to apply; we are stripping all of the _apply kwargs and
-        performing the original function call on the grouped object.
-        """
-
-        # TODO: can we de-duplicate with _dispatch?
-        def f(x, name=name, *args):
-            x = self._shallow_copy(x)
-
-            if isinstance(name, str):
-                return getattr(x, name)(*args, **kwargs)
-
-            return x.apply(name, *args, **kwargs)
-
-        return self._groupby.apply(f)
-
-
-def _flex_binary_moment(arg1, arg2, f, pairwise=False):
+def flex_binary_moment(arg1, arg2, f, pairwise=False):
 
     if not (
         isinstance(arg1, (np.ndarray, ABCSeries, ABCDataFrame))
         and isinstance(arg2, (np.ndarray, ABCSeries, ABCDataFrame))
     ):
         raise TypeError(
-            "arguments to moment function must be of type "
-            "np.ndarray/Series/DataFrame"
+            "arguments to moment function must be of type np.ndarray/Series/DataFrame"
         )
 
     if isinstance(arg1, (np.ndarray, ABCSeries)) and isinstance(
         arg2, (np.ndarray, ABCSeries)
     ):
-        X, Y = _prep_binary(arg1, arg2)
+        X, Y = prep_binary(arg1, arg2)
         return f(X, Y)
 
     elif isinstance(arg1, ABCDataFrame):
@@ -142,7 +73,7 @@ def _flex_binary_moment(arg1, arg2, f, pairwise=False):
                             results[i][j] = results[j][i]
                         else:
                             results[i][j] = f(
-                                *_prep_binary(arg1.iloc[:, i], arg2.iloc[:, j])
+                                *prep_binary(arg1.iloc[:, i], arg2.iloc[:, j])
                             )
 
                 from pandas import concat
@@ -166,10 +97,16 @@ def _flex_binary_moment(arg1, arg2, f, pairwise=False):
 
                     # set the index and reorder
                     if arg2.columns.nlevels > 1:
+                        # mypy needs to know columns is a MultiIndex, Index doesn't
+                        # have levels attribute
+                        arg2.columns = cast(MultiIndex, arg2.columns)
                         result.index = MultiIndex.from_product(
                             arg2.columns.levels + [result_index]
                         )
-                        result = result.reorder_levels([2, 0, 1]).sort_index()
+                        # GH 34440
+                        num_levels = len(result.index.levels)
+                        new_order = [num_levels - 1] + list(range(num_levels - 1))
+                        result = result.reorder_levels(new_order).sort_index()
                     else:
                         result.index = MultiIndex.from_product(
                             [range(len(arg2.columns)), range(len(result_index))]
@@ -203,77 +140,22 @@ def _flex_binary_moment(arg1, arg2, f, pairwise=False):
                 raise ValueError("'pairwise' is not True/False")
         else:
             results = {
-                i: f(*_prep_binary(arg1.iloc[:, i], arg2))
+                i: f(*prep_binary(arg1.iloc[:, i], arg2))
                 for i, col in enumerate(arg1.columns)
             }
             return dataframe_from_int_dict(results, arg1)
 
     else:
-        return _flex_binary_moment(arg2, arg1, f)
+        return flex_binary_moment(arg2, arg1, f)
 
 
-def _get_center_of_mass(comass, span, halflife, alpha):
-    valid_count = com.count_not_none(comass, span, halflife, alpha)
-    if valid_count > 1:
-        raise ValueError("comass, span, halflife, and alpha are mutually exclusive")
-
-    # Convert to center of mass; domain checks ensure 0 < alpha <= 1
-    if comass is not None:
-        if comass < 0:
-            raise ValueError("comass must satisfy: comass >= 0")
-    elif span is not None:
-        if span < 1:
-            raise ValueError("span must satisfy: span >= 1")
-        comass = (span - 1) / 2.0
-    elif halflife is not None:
-        if halflife <= 0:
-            raise ValueError("halflife must satisfy: halflife > 0")
-        decay = 1 - np.exp(np.log(0.5) / halflife)
-        comass = 1 / decay - 1
-    elif alpha is not None:
-        if alpha <= 0 or alpha > 1:
-            raise ValueError("alpha must satisfy: 0 < alpha <= 1")
-        comass = (1.0 - alpha) / alpha
-    else:
-        raise ValueError("Must pass one of comass, span, halflife, or alpha")
-
-    return float(comass)
-
-
-def _offset(window, center):
-    if not is_integer(window):
-        window = len(window)
-    offset = (window - 1) / 2.0 if center else 0
-    try:
-        return int(offset)
-    except TypeError:
-        return offset.astype(int)
-
-
-def _require_min_periods(p):
-    def _check_func(minp, window):
-        if minp is None:
-            return window
-        else:
-            return max(p, minp)
-
-    return _check_func
-
-
-def _use_window(minp, window):
-    if minp is None:
-        return window
-    else:
-        return minp
-
-
-def _zsqrt(x):
+def zsqrt(x):
     with np.errstate(all="ignore"):
         result = np.sqrt(x)
         mask = x < 0
 
     if isinstance(x, ABCDataFrame):
-        if mask.values.any():
+        if mask._values.any():
             result[mask] = 0
     else:
         if mask.any():
@@ -282,7 +164,7 @@ def _zsqrt(x):
     return result
 
 
-def _prep_binary(arg1, arg2):
+def prep_binary(arg1, arg2):
     if not isinstance(arg2, type(arg1)):
         raise Exception("Input arrays must be of the same type!")
 

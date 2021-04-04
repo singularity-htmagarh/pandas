@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Python script for building documentation.
 
@@ -39,28 +39,32 @@ class DocBuilder:
 
     def __init__(
         self,
-        num_jobs=0,
+        num_jobs="auto",
         include_api=True,
+        whatsnew=False,
         single_doc=None,
         verbosity=0,
         warnings_are_errors=False,
     ):
         self.num_jobs = num_jobs
+        self.include_api = include_api
+        self.whatsnew = whatsnew
         self.verbosity = verbosity
         self.warnings_are_errors = warnings_are_errors
 
         if single_doc:
             single_doc = self._process_single_doc(single_doc)
-            include_api = False
             os.environ["SPHINX_PATTERN"] = single_doc
         elif not include_api:
             os.environ["SPHINX_PATTERN"] = "-api"
+        elif whatsnew:
+            os.environ["SPHINX_PATTERN"] = "whatsnew"
 
         self.single_doc_html = None
         if single_doc and single_doc.endswith(".rst"):
             self.single_doc_html = os.path.splitext(single_doc)[0] + ".html"
         elif single_doc:
-            self.single_doc_html = "reference/api/pandas.{}.html".format(single_doc)
+            self.single_doc_html = f"reference/api/pandas.{single_doc}.html"
 
     def _process_single_doc(self, single_doc):
         """
@@ -76,25 +80,23 @@ class DocBuilder:
             if os.path.exists(os.path.join(SOURCE_PATH, single_doc)):
                 return single_doc
             else:
-                raise FileNotFoundError("File {} not found".format(single_doc))
+                raise FileNotFoundError(f"File {single_doc} not found")
 
         elif single_doc.startswith("pandas."):
             try:
                 obj = pandas  # noqa: F821
                 for name in single_doc.split("."):
                     obj = getattr(obj, name)
-            except AttributeError:
-                raise ImportError("Could not import {}".format(single_doc))
+            except AttributeError as err:
+                raise ImportError(f"Could not import {single_doc}") from err
             else:
                 return single_doc[len("pandas.") :]
         else:
             raise ValueError(
-                (
-                    "--single={} not understood. Value should be a "
-                    "valid path to a .rst or .ipynb file, or a "
-                    "valid pandas object (e.g. categorical.rst or "
-                    "pandas.DataFrame.head)"
-                ).format(single_doc)
+                f"--single={single_doc} not understood. "
+                "Value should be a valid path to a .rst or .ipynb file, "
+                "or a valid pandas object "
+                "(e.g. categorical.rst or pandas.DataFrame.head)"
             )
 
     @staticmethod
@@ -113,7 +115,7 @@ class DocBuilder:
         """
         subprocess.check_call(args, stdout=sys.stdout, stderr=sys.stderr)
 
-    def _sphinx_build(self, kind):
+    def _sphinx_build(self, kind: str):
         """
         Call sphinx to build documentation.
 
@@ -128,15 +130,15 @@ class DocBuilder:
         >>> DocBuilder(num_jobs=4)._sphinx_build('html')
         """
         if kind not in ("html", "latex"):
-            raise ValueError("kind must be html or latex, " "not {}".format(kind))
+            raise ValueError(f"kind must be html or latex, not {kind}")
 
         cmd = ["sphinx-build", "-b", kind]
         if self.num_jobs:
-            cmd += ["-j", str(self.num_jobs)]
+            cmd += ["-j", self.num_jobs]
         if self.warnings_are_errors:
             cmd += ["-W", "--keep-going"]
         if self.verbosity:
-            cmd.append("-{}".format("v" * self.verbosity))
+            cmd.append(f"-{'v' * self.verbosity}")
         cmd += [
             "-d",
             os.path.join(BUILD_PATH, "doctrees"),
@@ -156,7 +158,7 @@ class DocBuilder:
         """
         Open the rst file `page` and extract its title.
         """
-        fname = os.path.join(SOURCE_PATH, "{}.rst".format(page))
+        fname = os.path.join(SOURCE_PATH, f"{page}.rst")
         option_parser = docutils.frontend.OptionParser(
             components=(docutils.parsers.rst.Parser,)
         )
@@ -184,25 +186,20 @@ class DocBuilder:
         Create in the build directory an html file with a redirect,
         for every row in REDIRECTS_FILE.
         """
-        html = """
-        <html>
-            <head>
-                <meta http-equiv="refresh" content="0;URL={url}"/>
-            </head>
-            <body>
-                <p>
-                    The page has been moved to <a href="{url}">{title}</a>
-                </p>
-            </body>
-        <html>
-        """
         with open(REDIRECTS_FILE) as mapping_fd:
             reader = csv.reader(mapping_fd)
             for row in reader:
                 if not row or row[0].strip().startswith("#"):
                     continue
 
-                path = os.path.join(BUILD_PATH, "html", *row[0].split("/")) + ".html"
+                html_path = os.path.join(BUILD_PATH, "html")
+                path = os.path.join(html_path, *row[0].split("/")) + ".html"
+
+                if not self.include_api and (
+                    os.path.join(html_path, "reference") in path
+                    or os.path.join(html_path, "generated") in path
+                ):
+                    continue
 
                 try:
                     title = self._get_page_title(row[1])
@@ -212,17 +209,20 @@ class DocBuilder:
                     # sphinx specific stuff
                     title = "this page"
 
-                if os.path.exists(path):
-                    raise RuntimeError(
-                        ("Redirection would overwrite an existing file: " "{}").format(
-                            path
-                        )
-                    )
-
                 with open(path, "w") as moved_page_fd:
-                    moved_page_fd.write(
-                        html.format(url="{}.html".format(row[1]), title=title)
-                    )
+                    html = f"""\
+<html>
+    <head>
+        <meta http-equiv="refresh" content="0;URL={row[1]}.html"/>
+    </head>
+    <body>
+        <p>
+            The page has been moved to <a href="{row[1]}.html">{title}</a>
+        </p>
+    </body>
+<html>"""
+
+                    moved_page_fd.write(html)
 
     def html(self):
         """
@@ -238,6 +238,9 @@ class DocBuilder:
                 self._open_browser(self.single_doc_html)
             else:
                 self._add_redirects()
+                if self.whatsnew:
+                    self._open_browser(os.path.join("whatsnew", "index.html"))
+
         return ret_code
 
     def latex(self, force=False):
@@ -290,21 +293,26 @@ class DocBuilder:
 def main():
     cmds = [method for method in dir(DocBuilder) if not method.startswith("_")]
 
+    joined = ",".join(cmds)
     argparser = argparse.ArgumentParser(
-        description="pandas documentation builder",
-        epilog="Commands: {}".format(",".join(cmds)),
+        description="pandas documentation builder", epilog=f"Commands: {joined}"
+    )
+
+    joined = ", ".join(cmds)
+    argparser.add_argument(
+        "command", nargs="?", default="html", help=f"command to run: {joined}"
     )
     argparser.add_argument(
-        "command",
-        nargs="?",
-        default="html",
-        help="command to run: {}".format(", ".join(cmds)),
-    )
-    argparser.add_argument(
-        "--num-jobs", type=int, default=0, help="number of jobs used by sphinx-build"
+        "--num-jobs", default="auto", help="number of jobs used by sphinx-build"
     )
     argparser.add_argument(
         "--no-api", default=False, help="omit api and autosummary", action="store_true"
+    )
+    argparser.add_argument(
+        "--whatsnew",
+        default=False,
+        help="only build whatsnew (and api for links)",
+        action="store_true",
     )
     argparser.add_argument(
         "--single",
@@ -312,10 +320,9 @@ def main():
         type=str,
         default=None,
         help=(
-            'filename (relative to the "source" folder)'
-            " of section or method name to compile, e.g. "
-            '"development/contributing.rst",'
-            ' "ecosystem.rst", "pandas.DataFrame.join"'
+            "filename (relative to the 'source' folder) of section or method name to "
+            "compile, e.g. 'development/contributing.rst', "
+            "'ecosystem.rst', 'pandas.DataFrame.join'"
         ),
     )
     argparser.add_argument(
@@ -340,11 +347,8 @@ def main():
     args = argparser.parse_args()
 
     if args.command not in cmds:
-        raise ValueError(
-            "Unknown command {}. Available options: {}".format(
-                args.command, ", ".join(cmds)
-            )
-        )
+        joined = ", ".join(cmds)
+        raise ValueError(f"Unknown command {args.command}. Available options: {joined}")
 
     # Below we update both os.environ and sys.path. The former is used by
     # external libraries (namely Sphinx) to compile this module and resolve
@@ -361,6 +365,7 @@ def main():
     builder = DocBuilder(
         args.num_jobs,
         not args.no_api,
+        args.whatsnew,
         args.single,
         args.verbosity,
         args.warnings_are_errors,

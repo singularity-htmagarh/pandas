@@ -22,7 +22,6 @@ Flat file
    read_table
    read_csv
    read_fwf
-   read_msgpack
 
 Clipboard
 ~~~~~~~~~
@@ -51,13 +50,13 @@ JSON
    :toctree: api/
 
    read_json
+   json_normalize
 
 .. currentmodule:: pandas.io.json
 
 .. autosummary::
    :toctree: api/
 
-   json_normalize
    build_table_schema
 
 .. currentmodule:: pandas
@@ -68,6 +67,13 @@ HTML
    :toctree: api/
 
    read_html
+
+XML
+~~~~
+.. autosummary::
+   :toctree: api/
+
+   read_xml
 
 HDFStore: PyTables (HDF5)
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -84,6 +90,11 @@ HDFStore: PyTables (HDF5)
    HDFStore.groups
    HDFStore.walk
 
+.. warning::
+
+   One can store a subclass of ``DataFrame`` or ``Series`` to HDF5,
+   but the type of the subclass is lost upon storing.
+
 Feather
 ~~~~~~~
 .. autosummary::
@@ -97,6 +108,13 @@ Parquet
    :toctree: api/
 
    read_parquet
+
+ORC
+~~~
+.. autosummary::
+   :toctree: api/
+
+   read_orc
 
 SAS
 ~~~
@@ -140,7 +158,6 @@ STATA
 .. autosummary::
    :toctree: api/
 
-   StataReader.data
    StataReader.data_label
    StataReader.value_labels
    StataReader.variable_labels

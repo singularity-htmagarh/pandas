@@ -6,7 +6,7 @@ encouraging because it means pandas is not only helping users to handle
 their data tasks but also that it provides a better starting point for
 developers to build powerful and more focused data tools. The creation
 of libraries that complement pandas' functionality also allows pandas
-development to remain focused around it's original requirements.
+development to remain focused around its original requirements.
 
 This is an inexhaustive list of projects that build on pandas in order
 to provide tools in the PyData space. For a list of projects that depend
@@ -41,6 +41,13 @@ on top of pandas. It excels at transforming temporal and relational
 datasets into feature matrices for machine learning using reusable
 feature engineering "primitives". Users can contribute their own
 primitives in Python and share them with the rest of the community.
+
+### [Compose](https://github.com/FeatureLabs/compose)
+
+Compose is a machine learning tool for labeling data and prediction engineering.
+It allows you to structure the labeling process by parameterizing
+prediction problems and transforming time-driven relational data into
+target values with cutoff times that can be used for supervised learning.
 
 ## Visualization
 
@@ -84,19 +91,16 @@ pandas with the option to perform statistical estimation while plotting,
 aggregating across observations and visualizing the fit of statistical
 models to emphasize patterns in a dataset.
 
-### [yhat/ggpy](https://github.com/yhat/ggpy)
+### [plotnine](https://github.com/has2k1/plotnine/)
 
 Hadley Wickham's [ggplot2](https://ggplot2.tidyverse.org/) is a
 foundational exploratory visualization package for the R language. Based
 on ["The Grammar of
 Graphics"](https://www.cs.uic.edu/~wilkinson/TheGrammarOfGraphics/GOG.html)
 it provides a powerful, declarative and extremely general way to
-generate bespoke plots of any kind of data. It's really quite
-incredible. Various implementations to other languages are available,
-but a faithful implementation for Python users has long been missing.
-Although still young (as of Jan-2014), the
-[yhat/ggpy](https://github.com/yhat/ggpy) project has been progressing
-quickly in that direction.
+generate bespoke plots of any kind of data.
+Various implementations to other languages are available.
+A good implementation for Python users is [has2k1/plotnine](https://github.com/has2k1/plotnine/).
 
 ### [IPython Vega](https://github.com/vega/ipyvega)
 
@@ -267,7 +271,7 @@ which pandas excels.
 
 ## Out-of-core
 
-### [Blaze](http://blaze.pydata.org/)
+### [Blaze](https://blaze.pydata.org/)
 
 Blaze provides a standard API for doing computations with various
 in-memory and on-disk backends: NumPy, Pandas, SQLAlchemy, MongoDB,
@@ -356,13 +360,30 @@ Cyberpandas provides an extension type for storing arrays of IP
 Addresses. These arrays can be stored inside pandas' Series and
 DataFrame.
 
+### [Pandas-Genomics](https://pandas-genomics.readthedocs.io/en/latest/)
+
+Pandas-Genomics provides an extension type and extension array for working
+ with genomics data.  It also includes `genomics` accessors for many useful properties
+ and methods related to QC and analysis of genomics data.
+
+### [Pint-Pandas](https://github.com/hgrecco/pint-pandas)
+
+Pint-Pandas provides an extension type for storing numeric arrays with units.
+These arrays can be stored inside pandas' Series and DataFrame. Operations
+between Series and DataFrame columns which use pint's extension array are then
+units aware.
+
 ## Accessors
 
 A directory of projects providing
 `extension accessors <extending.register-accessors>`. This is for users to discover new accessors and for library
 authors to coordinate on the namespace.
 
-  | Library                                                     | Accessor |  Classes              |
-  | ------------------------------------------------------------|----------|-----------------------|
-  | [cyberpandas](https://cyberpandas.readthedocs.io/en/latest) | `ip`     | `Series`              |
-  | [pdvega](https://altair-viz.github.io/pdvega/)              | `vgplot` | `Series`, `DataFrame` |
+  | Library                                                              | Accessor   |  Classes              |
+  | ---------------------------------------------------------------------|------------|-----------------------|
+  | [cyberpandas](https://cyberpandas.readthedocs.io/en/latest)          | `ip`       | `Series`              |
+  | [pdvega](https://altair-viz.github.io/pdvega/)                       | `vgplot`   | `Series`, `DataFrame` |
+  | [pandas-genomics](https://pandas-genomics.readthedocs.io/en/latest/) | `genomics` | `Series`, `DataFrame` |
+  | [pandas_path](https://github.com/drivendataorg/pandas-path/)         | `path`     | `Index`, `Series`     |
+  | [pint-pandas](https://github.com/hgrecco/pint-pandas)                | `pint`     | `Series`, `DataFrame` |
+  | [composeml](https://github.com/FeatureLabs/compose)                  | `slice`    | `DataFrame`           |

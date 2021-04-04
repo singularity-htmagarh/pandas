@@ -1,41 +1,68 @@
-"""Core eval alignment algorithms
 """
+Core eval alignment algorithms.
+"""
+from __future__ import annotations
 
-from functools import partial, wraps
+from functools import (
+    partial,
+    wraps,
+)
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 import warnings
 
 import numpy as np
 
+from pandas._typing import FrameOrSeries
 from pandas.errors import PerformanceWarning
 
-from pandas.core.dtypes.generic import ABCDataFrame, ABCSeries
+from pandas.core.dtypes.generic import (
+    ABCDataFrame,
+    ABCSeries,
+)
 
 from pandas.core.base import PandasObject
 import pandas.core.common as com
 from pandas.core.computation.common import result_type_many
 
+if TYPE_CHECKING:
+    from pandas.core.indexes.api import Index
 
-def _align_core_single_unary_op(term):
+
+def _align_core_single_unary_op(
+    term,
+) -> Tuple[Union[partial, Type[FrameOrSeries]], Optional[Dict[str, Index]]]:
+
+    typ: Union[partial, Type[FrameOrSeries]]
+    axes: Optional[Dict[str, Index]] = None
+
     if isinstance(term.value, np.ndarray):
         typ = partial(np.asanyarray, dtype=term.value.dtype)
     else:
         typ = type(term.value)
-    ret = (typ,)
+        if hasattr(term.value, "axes"):
+            axes = _zip_axes_from_type(typ, term.value.axes)
 
-    if not hasattr(term.value, "axes"):
-        ret += (None,)
-    else:
-        ret += (_zip_axes_from_type(typ, term.value.axes),)
-    return ret
+    return typ, axes
 
 
-def _zip_axes_from_type(typ, new_axes):
-    axes = {ax_name: new_axes[ax_ind] for ax_ind, ax_name in typ._AXIS_NAMES.items()}
-    return axes
+def _zip_axes_from_type(
+    typ: Type[FrameOrSeries], new_axes: Sequence[Index]
+) -> Dict[str, Index]:
+    return {name: new_axes[i] for i, name in enumerate(typ._AXIS_ORDERS)}
 
 
 def _any_pandas_objects(terms) -> bool:
-    """Check a sequence of terms for instances of PandasObject."""
+    """
+    Check a sequence of terms for instances of PandasObject.
+    """
     return any(isinstance(term.value, PandasObject) for term in terms)
 
 
@@ -100,10 +127,10 @@ def _align_core(terms):
                 ordm = np.log10(max(1, abs(reindexer_size - term_axis_size)))
                 if ordm >= 1 and reindexer_size >= 10000:
                     w = (
-                        "Alignment difference on axis {axis} is larger "
-                        "than an order of magnitude on term {term!r}, by "
-                        "more than {ordm:.4g}; performance may suffer"
-                    ).format(axis=axis, term=terms[i].name, ordm=ordm)
+                        f"Alignment difference on axis {axis} is larger "
+                        f"than an order of magnitude on term {repr(terms[i].name)}, "
+                        f"by more than {ordm:.4g}; performance may suffer"
+                    )
                     warnings.warn(w, category=PerformanceWarning, stacklevel=6)
 
                 f = partial(ti.reindex, reindexer, axis=axis, copy=False)
@@ -116,7 +143,9 @@ def _align_core(terms):
 
 
 def align_terms(terms):
-    """Align a set of terms"""
+    """
+    Align a set of terms.
+    """
     try:
         # flatten the parse tree (a nested list, really)
         terms = list(com.flatten(terms))
@@ -174,8 +203,11 @@ def reconstruct_object(typ, obj, axes, dtype):
         # The condition is to distinguish 0-dim array (returned in case of
         # scalar) and 1 element array
         # e.g. np.array(0) and np.array([0])
-        if len(obj.shape) == 1 and len(obj) == 1:
-            if not isinstance(ret_value, np.ndarray):
-                ret_value = np.array([ret_value]).astype(res_t)
+        if (
+            len(obj.shape) == 1
+            and len(obj) == 1
+            and not isinstance(ret_value, np.ndarray)
+        ):
+            ret_value = np.array([ret_value]).astype(res_t)
 
     return ret_value

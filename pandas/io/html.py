@@ -8,15 +8,35 @@ from collections import abc
 import numbers
 import os
 import re
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Pattern,
+    Sequence,
+    Tuple,
+    Union,
+)
 
+from pandas._typing import FilePathOrBuffer
 from pandas.compat._optional import import_optional_dependency
-from pandas.errors import AbstractMethodError, EmptyDataError
+from pandas.errors import (
+    AbstractMethodError,
+    EmptyDataError,
+)
+from pandas.util._decorators import deprecate_nonkeyword_arguments
 
 from pandas.core.dtypes.common import is_list_like
 
-from pandas import Series
+from pandas.core.construction import create_series_with_explicit_dtype
+from pandas.core.frame import DataFrame
 
-from pandas.io.common import _is_url, _validate_header_arg, urlopen
+from pandas.io.common import (
+    is_url,
+    stringify_path,
+    urlopen,
+    validate_header_arg,
+)
 from pandas.io.formats.printing import pprint_thing
 from pandas.io.parsers import TextParser
 
@@ -35,17 +55,13 @@ def _importers():
         return
 
     global _HAS_BS4, _HAS_LXML, _HAS_HTML5LIB
-    bs4 = import_optional_dependency("bs4", raise_on_missing=False, on_version="ignore")
+    bs4 = import_optional_dependency("bs4", errors="ignore")
     _HAS_BS4 = bs4 is not None
 
-    lxml = import_optional_dependency(
-        "lxml.etree", raise_on_missing=False, on_version="ignore"
-    )
+    lxml = import_optional_dependency("lxml.etree", errors="ignore")
     _HAS_LXML = lxml is not None
 
-    html5lib = import_optional_dependency(
-        "html5lib", raise_on_missing=False, on_version="ignore"
-    )
+    html5lib = import_optional_dependency("html5lib", errors="ignore")
     _HAS_HTML5LIB = html5lib is not None
 
     _IMPORTS = True
@@ -102,9 +118,7 @@ def _get_skiprows(skiprows):
         return skiprows
     elif skiprows is None:
         return 0
-    raise TypeError(
-        "%r is not a valid type for skipping rows" % type(skiprows).__name__
-    )
+    raise TypeError(f"{type(skiprows).__name__} is not a valid type for skipping rows")
 
 
 def _read(obj):
@@ -119,7 +133,7 @@ def _read(obj):
     -------
     raw_text : str
     """
-    if _is_url(obj):
+    if is_url(obj):
         with urlopen(obj) as url:
             text = url.read()
     elif hasattr(obj, "read"):
@@ -133,7 +147,7 @@ def _read(obj):
         except (TypeError, ValueError):
             pass
     else:
-        raise TypeError("Cannot read object of type %r" % type(obj).__name__)
+        raise TypeError(f"Cannot read object of type '{type(obj).__name__}'")
     return text
 
 
@@ -159,8 +173,6 @@ class _HtmlFrameParser:
     displayed_only : bool
         Whether or not items with "display:none" should be ignored
 
-        .. versionadded:: 0.23.0
-
     Attributes
     ----------
     io : str or file-like
@@ -178,8 +190,6 @@ class _HtmlFrameParser:
 
     displayed_only : bool
         Whether or not items with "display:none" should be ignored
-
-        .. versionadded:: 0.23.0
 
     Notes
     -----
@@ -397,7 +407,6 @@ class _HtmlFrameParser:
                - Move rows from bottom of body to footer only if
                  all elements inside row are <th>
         """
-
         header_rows = self._parse_thead_tr(table_html)
         body_rows = self._parse_tbody_tr(table_html)
         footer_rows = self._parse_tfoot_tr(table_html)
@@ -437,9 +446,8 @@ class _HtmlFrameParser:
         Any cell with ``rowspan`` or ``colspan`` will have its contents copied
         to subsequent cells.
         """
-
         all_texts = []  # list of rows, each a list of str
-        remainder = []  # list of (index, text, nrows)
+        remainder: List[Tuple[int, str, int]] = []  # list of (index, text, nrows)
 
         for tr in rows:
             texts = []  # the output for this row
@@ -560,9 +568,7 @@ class _BeautifulSoupHtml5LibFrameParser(_HtmlFrameParser):
             unique_tables.add(table)
 
         if not result:
-            raise ValueError(
-                "No tables found matching pattern {patt!r}".format(patt=match.pattern)
-            )
+            raise ValueError(f"No tables found matching pattern {repr(match.pattern)}")
         return result
 
     def _text_getter(self, obj):
@@ -589,19 +595,25 @@ class _BeautifulSoupHtml5LibFrameParser(_HtmlFrameParser):
     def _setup_build_doc(self):
         raw_text = _read(self.io)
         if not raw_text:
-            raise ValueError("No text parsed from document: {doc}".format(doc=self.io))
+            raise ValueError(f"No text parsed from document: {self.io}")
         return raw_text
 
     def _build_doc(self):
         from bs4 import BeautifulSoup
 
-        return BeautifulSoup(
-            self._setup_build_doc(), features="html5lib", from_encoding=self.encoding
-        )
+        bdoc = self._setup_build_doc()
+        if isinstance(bdoc, bytes) and self.encoding is not None:
+            udoc = bdoc.decode(self.encoding)
+            from_encoding = None
+        else:
+            udoc = bdoc
+            from_encoding = self.encoding
+        return BeautifulSoup(udoc, features="html5lib", from_encoding=from_encoding)
 
 
 def _build_xpath_expr(attrs) -> str:
-    """Build an xpath expression to simulate bs4's ability to pass in kwargs to
+    """
+    Build an xpath expression to simulate bs4's ability to pass in kwargs to
     search for attributes when using the lxml parser.
 
     Parameters
@@ -618,8 +630,8 @@ def _build_xpath_expr(attrs) -> str:
     if "class_" in attrs:
         attrs["class"] = attrs.pop("class_")
 
-    s = ["@{key}={val!r}".format(key=k, val=v) for k, v in attrs.items()]
-    return "[{expr}]".format(expr=" and ".join(s))
+    s = " and ".join([f"@{k}={repr(v)}" for k, v in attrs.items()])
+    return f"[{s}]"
 
 
 _re_namespace = {"re": "http://exslt.org/regular-expressions"}
@@ -661,8 +673,7 @@ class _LxmlFrameParser(_HtmlFrameParser):
 
         # 1. check all descendants for the given pattern and only search tables
         # 2. go up the tree until we find a table
-        query = "//table//*[re:test(text(), {patt!r})]/ancestor::table"
-        xpath_expr = query.format(patt=pattern)
+        xpath_expr = f"//table//*[re:test(text(), {repr(pattern)})]/ancestor::table"
 
         # if any table attributes were given build an xpath expression to
         # search for them
@@ -682,9 +693,7 @@ class _LxmlFrameParser(_HtmlFrameParser):
                         elem.getparent().remove(elem)
 
         if not tables:
-            raise ValueError(
-                "No tables found matching regex {patt!r}".format(patt=pattern)
-            )
+            raise ValueError(f"No tables found matching regex {repr(pattern)}")
         return tables
 
     def _equals_tag(self, obj, tag):
@@ -706,13 +715,17 @@ class _LxmlFrameParser(_HtmlFrameParser):
         --------
         pandas.io.html._HtmlFrameParser._build_doc
         """
-        from lxml.html import parse, fromstring, HTMLParser
         from lxml.etree import XMLSyntaxError
+        from lxml.html import (
+            HTMLParser,
+            fromstring,
+            parse,
+        )
 
         parser = HTMLParser(recover=True, encoding=self.encoding)
 
         try:
-            if _is_url(self.io):
+            if is_url(self.io):
                 with urlopen(self.io) as f:
                     r = parse(f, parser=parser)
             else:
@@ -722,9 +735,9 @@ class _LxmlFrameParser(_HtmlFrameParser):
                 r = r.getroot()
             except AttributeError:
                 pass
-        except (UnicodeDecodeError, IOError) as e:
+        except (UnicodeDecodeError, OSError) as e:
             # if the input is a blob of html goop
-            if not _is_url(self.io):
+            if not is_url(self.io):
                 r = fromstring(self.io, parser=parser)
 
                 try:
@@ -767,7 +780,8 @@ class _LxmlFrameParser(_HtmlFrameParser):
 
 
 def _expand_elements(body):
-    lens = Series([len(elem) for elem in body])
+    data = [len(elem) for elem in body]
+    lens = create_series_with_explicit_dtype(data, dtype_if_empty=object)
     lens_max = lens.max()
     not_max = lens[lens != lens_max]
 
@@ -796,9 +810,8 @@ def _data_to_frame(**kwargs):
 
     # fill out elements of body that are "ragged"
     _expand_elements(body)
-    tp = TextParser(body, header=header, **kwargs)
-    df = tp.read()
-    return df
+    with TextParser(body, header=header, **kwargs) as tp:
+        return tp.read()
 
 
 _valid_parsers = {
@@ -833,8 +846,7 @@ def _parser_dispatch(flavor):
     valid_parsers = list(_valid_parsers.keys())
     if flavor not in valid_parsers:
         raise ValueError(
-            "{invalid!r} is not a valid flavor, valid flavors "
-            "are {valid}".format(invalid=flavor, valid=valid_parsers)
+            f"{repr(flavor)} is not a valid flavor, valid flavors are {valid_parsers}"
         )
 
     if flavor in ("bs4", "html5lib"):
@@ -852,7 +864,8 @@ def _parser_dispatch(flavor):
 
 
 def _print_as_set(s) -> str:
-    return "{" + "{arg}".format(arg=", ".join(pprint_thing(el) for el in s)) + "}"
+    arg = ", ".join(pprint_thing(el) for el in s)
+    return f"{{{arg}}}"
 
 
 def _validate_flavor(flavor):
@@ -863,13 +876,13 @@ def _validate_flavor(flavor):
     elif isinstance(flavor, abc.Iterable):
         if not all(isinstance(flav, str) for flav in flavor):
             raise TypeError(
-                "Object of type {typ!r} is not an iterable of "
-                "strings".format(typ=type(flavor).__name__)
+                f"Object of type {repr(type(flavor).__name__)} "
+                f"is not an iterable of strings"
             )
     else:
-        fmt = "{flavor!r}" if isinstance(flavor, str) else "{flavor}"
-        fmt += " is not a valid flavor"
-        raise ValueError(fmt.format(flavor=flavor))
+        msg = repr(flavor) if isinstance(flavor, str) else str(flavor)
+        msg += " is not a valid flavor"
+        raise ValueError(msg)
 
     flavor = tuple(flavor)
     valid_flavors = set(_valid_parsers)
@@ -877,10 +890,8 @@ def _validate_flavor(flavor):
 
     if not flavor_set & valid_flavors:
         raise ValueError(
-            "{invalid} is not a valid set of flavors, valid "
-            "flavors are {valid}".format(
-                invalid=_print_as_set(flavor_set), valid=_print_as_set(valid_flavors)
-            )
+            f"{_print_as_set(flavor_set)} is not a valid set of flavors, valid "
+            f"flavors are {_print_as_set(valid_flavors)}"
         )
     return flavor
 
@@ -896,7 +907,7 @@ def _parse(flavor, io, match, attrs, encoding, displayed_only, **kwargs):
 
         try:
             tables = p.parse_tables()
-        except Exception as caught:
+        except ValueError as caught:
             # if `io` is an io-like object, check if it's seekable
             # and try to rewind it before trying the next parser
             if hasattr(io, "seekable") and io.seekable():
@@ -904,17 +915,17 @@ def _parse(flavor, io, match, attrs, encoding, displayed_only, **kwargs):
             elif hasattr(io, "seekable") and not io.seekable():
                 # if we couldn't rewind it, let the user know
                 raise ValueError(
-                    "The flavor {} failed to parse your input. "
+                    f"The flavor {flav} failed to parse your input. "
                     "Since you passed a non-rewindable file "
                     "object, we can't rewind it to try "
-                    "another parser. Try read_html() with a "
-                    "different flavor.".format(flav)
-                )
+                    "another parser. Try read_html() with a different flavor."
+                ) from caught
 
             retained = caught
         else:
             break
     else:
+        assert retained is not None  # for mypy
         raise retained
 
     ret = []
@@ -926,23 +937,24 @@ def _parse(flavor, io, match, attrs, encoding, displayed_only, **kwargs):
     return ret
 
 
+@deprecate_nonkeyword_arguments(version="2.0")
 def read_html(
-    io,
-    match=".+",
-    flavor=None,
-    header=None,
-    index_col=None,
-    skiprows=None,
-    attrs=None,
-    parse_dates=False,
-    thousands=",",
-    encoding=None,
-    decimal=".",
-    converters=None,
+    io: FilePathOrBuffer,
+    match: Union[str, Pattern] = ".+",
+    flavor: Optional[str] = None,
+    header: Optional[Union[int, Sequence[int]]] = None,
+    index_col: Optional[Union[int, Sequence[int]]] = None,
+    skiprows: Optional[Union[int, Sequence[int], slice]] = None,
+    attrs: Optional[Dict[str, str]] = None,
+    parse_dates: bool = False,
+    thousands: Optional[str] = ",",
+    encoding: Optional[str] = None,
+    decimal: str = ".",
+    converters: Optional[Dict] = None,
     na_values=None,
-    keep_default_na=True,
-    displayed_only=True,
-):
+    keep_default_na: bool = True,
+    displayed_only: bool = True,
+) -> List[DataFrame]:
     r"""
     Read HTML tables into a ``list`` of ``DataFrame`` objects.
 
@@ -961,26 +973,26 @@ def read_html(
         This value is converted to a regular expression so that there is
         consistent behavior between Beautiful Soup and lxml.
 
-    flavor : str or None
+    flavor : str, optional
         The parsing engine to use. 'bs4' and 'html5lib' are synonymous with
         each other, they are both there for backwards compatibility. The
         default of ``None`` tries to use ``lxml`` to parse and if that fails it
         falls back on ``bs4`` + ``html5lib``.
 
-    header : int or list-like or None, optional
+    header : int or list-like, optional
         The row (or list of rows for a :class:`~pandas.MultiIndex`) to use to
         make the columns headers.
 
-    index_col : int or list-like or None, optional
+    index_col : int or list-like, optional
         The column (or list of columns) to use to create the index.
 
-    skiprows : int or list-like or slice or None, optional
+    skiprows : int, list-like or slice, optional
         Number of rows to skip after parsing the column integer. 0-based. If a
         sequence of integers or a slice is given, will skip the rows indexed by
         that sequence.  Note that a single element sequence means 'skip the nth
         row' whereas an integer means 'skip n rows'.
 
-    attrs : dict or None, optional
+    attrs : dict, optional
         This is a dictionary of attributes that you can pass to use to identify
         the table in the HTML. These are not checked for validity before being
         passed to lxml or Beautiful Soup. However, these attributes must be
@@ -990,7 +1002,7 @@ def read_html(
 
         is a valid attribute dictionary because the 'id' HTML tag attribute is
         a valid HTML attribute for *any* HTML tag as per `this document
-        <http://www.w3.org/TR/html-markup/global-attributes.html>`__. ::
+        <https://html.spec.whatwg.org/multipage/dom.html#global-attributes>`__. ::
 
             attrs = {'asdf': 'table'}
 
@@ -999,7 +1011,7 @@ def read_html(
         table attributes can be found `here
         <http://www.w3.org/TR/REC-html40/struct/tables.html#h-11.2>`__. A
         working draft of the HTML 5 spec can be found `here
-        <http://www.w3.org/TR/html-markup/table.html>`__. It contains the
+        <https://html.spec.whatwg.org/multipage/tables.html>`__. It contains the
         latest information on table attributes for the modern web.
 
     parse_dates : bool, optional
@@ -1008,7 +1020,7 @@ def read_html(
     thousands : str, optional
         Separator to use to parse thousands. Defaults to ``','``.
 
-    encoding : str or None, optional
+    encoding : str, optional
         The encoding used to decode the web page. Defaults to ``None``.``None``
         preserves the previous encoding behavior, which depends on the
         underlying parser library (e.g., the parser library will try to use
@@ -1041,7 +1053,7 @@ def read_html(
 
     See Also
     --------
-    read_csv
+    read_csv : Read a comma-separated values (csv) file into DataFrame.
 
     Notes
     -----
@@ -1061,8 +1073,6 @@ def read_html(
     If the function has a ``<thead>`` argument, it is used to construct
     the header, otherwise the function attempts to find the header within
     the body (by putting rows with only ``<th>`` elements into the header).
-
-        .. versionadded:: 0.21.0
 
     Similar to :func:`~read_csv` the `header` argument is applied
     **after** `skiprows` is applied.
@@ -1084,7 +1094,10 @@ def read_html(
             "cannot skip rows starting from the end of the "
             "data (you passed a negative value)"
         )
-    _validate_header_arg(header)
+    validate_header_arg(header)
+
+    io = stringify_path(io)
+
     return _parse(
         flavor=flavor,
         io=io,

@@ -1,14 +1,23 @@
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+)
+
 import pandas._libs.json as json
+from pandas._typing import StorageOptions
 
 from pandas.io.excel._base import ExcelWriter
-from pandas.io.excel._util import _validate_freeze_panes
+from pandas.io.excel._util import validate_freeze_panes
 
 
 class _XlsxStyler:
     # Map from openpyxl-oriented styles to flatter xlsxwriter representation
     # Ordering necessary for both determinism and because some are keyed by
     # prefixes of others.
-    STYLE_MAPPING = {
+    STYLE_MAPPING: Dict[str, List[Tuple[Tuple[str, ...], str]]] = {
         "font": [
             (("name",), "font_name"),
             (("sz",), "font_size"),
@@ -85,7 +94,6 @@ class _XlsxStyler:
         style_dict : style dictionary to convert
         num_format_str : optional number format string
         """
-
         # Create a XlsxWriter format object.
         props = {}
 
@@ -157,7 +165,7 @@ class _XlsxStyler:
         return props
 
 
-class _XlsxWriter(ExcelWriter):
+class XlsxWriter(ExcelWriter):
     engine = "xlsxwriter"
     supported_extensions = (".xlsx",)
 
@@ -167,11 +175,14 @@ class _XlsxWriter(ExcelWriter):
         engine=None,
         date_format=None,
         datetime_format=None,
-        mode="w",
-        **engine_kwargs,
+        mode: str = "w",
+        storage_options: StorageOptions = None,
+        engine_kwargs: Optional[Dict[str, Any]] = None,
     ):
         # Use the xlsxwriter module as the Excel writer.
-        import xlsxwriter
+        from xlsxwriter import Workbook
+
+        engine_kwargs = engine_kwargs or {}
 
         if mode == "a":
             raise ValueError("Append mode is not supported with xlsxwriter!")
@@ -182,16 +193,16 @@ class _XlsxWriter(ExcelWriter):
             date_format=date_format,
             datetime_format=datetime_format,
             mode=mode,
-            **engine_kwargs,
+            storage_options=storage_options,
+            engine_kwargs=engine_kwargs,
         )
 
-        self.book = xlsxwriter.Workbook(path, **engine_kwargs)
+        self.book = Workbook(self.handles.handle, **engine_kwargs)
 
     def save(self):
         """
         Save workbook to disk.
         """
-
         return self.book.close()
 
     def write_cells(
@@ -208,7 +219,7 @@ class _XlsxWriter(ExcelWriter):
 
         style_dict = {"null": None}
 
-        if _validate_freeze_panes(freeze_panes):
+        if validate_freeze_panes(freeze_panes):
             wks.freeze_panes(*(freeze_panes))
 
         for cell in cells:

@@ -11,8 +11,12 @@ import pytest
 
 from pandas.errors import ParserError
 
-from pandas import DataFrame, Index, MultiIndex
-import pandas.util.testing as tm
+from pandas import (
+    DataFrame,
+    Index,
+    MultiIndex,
+)
+import pandas._testing as tm
 
 
 def test_read_with_bad_header(all_parsers):
@@ -144,7 +148,7 @@ R_l0_g4,R_l1_g4,R4C0,R4C1,R4C2
     "kwargs,msg",
     [
         (
-            dict(index_col=["foo", "bar"]),
+            {"index_col": ["foo", "bar"]},
             (
                 "index_col must only contain "
                 "row numbers when specifying "
@@ -152,11 +156,11 @@ R_l0_g4,R_l1_g4,R4C0,R4C1,R4C2
             ),
         ),
         (
-            dict(index_col=[0, 1], names=["foo", "bar"]),
+            {"index_col": [0, 1], "names": ["foo", "bar"]},
             ("cannot specify names when specifying a multi-index header"),
         ),
         (
-            dict(index_col=[0, 1], usecols=["foo", "bar"]),
+            {"index_col": [0, 1], "usecols": ["foo", "bar"]},
             ("cannot specify usecols when specifying a multi-index header"),
         ),
     ],
@@ -181,16 +185,16 @@ R_l0_g4,R_l1_g4,R4C0,R4C1,R4C2
         parser.read_csv(StringIO(data), header=[0, 1, 2, 3], **kwargs)
 
 
-_TestTuple = namedtuple("names", ["first", "second"])
+_TestTuple = namedtuple("_TestTuple", ["first", "second"])
 
 
 @pytest.mark.parametrize(
     "kwargs",
     [
-        dict(header=[0, 1]),
-        dict(
-            skiprows=3,
-            names=[
+        {"header": [0, 1]},
+        {
+            "skiprows": 3,
+            "names": [
                 ("a", "q"),
                 ("a", "r"),
                 ("a", "s"),
@@ -198,10 +202,10 @@ _TestTuple = namedtuple("names", ["first", "second"])
                 ("c", "u"),
                 ("c", "v"),
             ],
-        ),
-        dict(
-            skiprows=3,
-            names=[
+        },
+        {
+            "skiprows": 3,
+            "names": [
                 _TestTuple("a", "q"),
                 _TestTuple("a", "r"),
                 _TestTuple("a", "s"),
@@ -209,7 +213,7 @@ _TestTuple = namedtuple("names", ["first", "second"])
                 _TestTuple("c", "u"),
                 _TestTuple("c", "v"),
             ],
-        ),
+        },
     ],
 )
 def test_header_multi_index_common_format1(all_parsers, kwargs):
@@ -234,10 +238,10 @@ two,7,8,9,10,11,12"""
 @pytest.mark.parametrize(
     "kwargs",
     [
-        dict(header=[0, 1]),
-        dict(
-            skiprows=2,
-            names=[
+        {"header": [0, 1]},
+        {
+            "skiprows": 2,
+            "names": [
                 ("a", "q"),
                 ("a", "r"),
                 ("a", "s"),
@@ -245,10 +249,10 @@ two,7,8,9,10,11,12"""
                 ("c", "u"),
                 ("c", "v"),
             ],
-        ),
-        dict(
-            skiprows=2,
-            names=[
+        },
+        {
+            "skiprows": 2,
+            "names": [
                 _TestTuple("a", "q"),
                 _TestTuple("a", "r"),
                 _TestTuple("a", "s"),
@@ -256,7 +260,7 @@ two,7,8,9,10,11,12"""
                 _TestTuple("c", "u"),
                 _TestTuple("c", "v"),
             ],
-        ),
+        },
     ],
 )
 def test_header_multi_index_common_format2(all_parsers, kwargs):
@@ -280,10 +284,10 @@ two,7,8,9,10,11,12"""
 @pytest.mark.parametrize(
     "kwargs",
     [
-        dict(header=[0, 1]),
-        dict(
-            skiprows=2,
-            names=[
+        {"header": [0, 1]},
+        {
+            "skiprows": 2,
+            "names": [
                 ("a", "q"),
                 ("a", "r"),
                 ("a", "s"),
@@ -291,10 +295,10 @@ two,7,8,9,10,11,12"""
                 ("c", "u"),
                 ("c", "v"),
             ],
-        ),
-        dict(
-            skiprows=2,
-            names=[
+        },
+        {
+            "skiprows": 2,
+            "names": [
                 _TestTuple("a", "q"),
                 _TestTuple("a", "r"),
                 _TestTuple("a", "s"),
@@ -302,7 +306,7 @@ two,7,8,9,10,11,12"""
                 _TestTuple("c", "u"),
                 _TestTuple("c", "v"),
             ],
-        ),
+        },
     ],
 )
 def test_header_multi_index_common_format3(all_parsers, kwargs):
@@ -397,7 +401,7 @@ def test_header_names_backward_compat(all_parsers, data, header):
     tm.assert_frame_equal(result, expected)
 
 
-@pytest.mark.parametrize("kwargs", [dict(), dict(index_col=False)])
+@pytest.mark.parametrize("kwargs", [{}, {"index_col": False}])
 def test_read_only_header_no_rows(all_parsers, kwargs):
     # See gh-7773
     parser = all_parsers
@@ -410,10 +414,10 @@ def test_read_only_header_no_rows(all_parsers, kwargs):
 @pytest.mark.parametrize(
     "kwargs,names",
     [
-        (dict(), [0, 1, 2, 3, 4]),
-        (dict(prefix="X"), ["X0", "X1", "X2", "X3", "X4"]),
+        ({}, [0, 1, 2, 3, 4]),
+        ({"prefix": "X"}, ["X0", "X1", "X2", "X3", "X4"]),
         (
-            dict(names=["foo", "bar", "baz", "quux", "panda"]),
+            {"names": ["foo", "bar", "baz", "quux", "panda"]},
             ["foo", "bar", "baz", "quux", "panda"],
         ),
     ],
@@ -528,15 +532,45 @@ def test_multi_index_unnamed(all_parsers, index_col, columns):
             parser.read_csv(StringIO(data), header=header, index_col=index_col)
     else:
         result = parser.read_csv(StringIO(data), header=header, index_col=index_col)
-        template = "Unnamed: {i}_level_0"
         exp_columns = []
 
         for i, col in enumerate(columns):
             if not col:  # Unnamed.
-                col = template.format(i=i if index_col is None else i + 1)
+                col = f"Unnamed: {i if index_col is None else i + 1}_level_0"
 
             exp_columns.append(col)
 
         columns = MultiIndex.from_tuples(zip(exp_columns, ["0", "1"]))
         expected = DataFrame([[2, 3], [4, 5]], columns=columns)
         tm.assert_frame_equal(result, expected)
+
+
+def test_read_csv_multiindex_columns(all_parsers):
+    # GH#6051
+    parser = all_parsers
+
+    s1 = "Male, Male, Male, Female, Female\nR, R, L, R, R\n.86, .67, .88, .78, .81"
+    s2 = (
+        "Male, Male, Male, Female, Female\n"
+        "R, R, L, R, R\n"
+        ".86, .67, .88, .78, .81\n"
+        ".86, .67, .88, .78, .82"
+    )
+
+    mi = MultiIndex.from_tuples(
+        [
+            ("Male", "R"),
+            (" Male", " R"),
+            (" Male", " L"),
+            (" Female", " R"),
+            (" Female", " R.1"),
+        ]
+    )
+    expected = DataFrame(
+        [[0.86, 0.67, 0.88, 0.78, 0.81], [0.86, 0.67, 0.88, 0.78, 0.82]], columns=mi
+    )
+
+    df1 = parser.read_csv(StringIO(s1), header=[0, 1])
+    tm.assert_frame_equal(df1, expected.iloc[:1])
+    df2 = parser.read_csv(StringIO(s2), header=[0, 1])
+    tm.assert_frame_equal(df2, expected)

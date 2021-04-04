@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Convert the conda environment.yml to the pip requirements-dev.txt,
 or check that they have the same packages (for the CI)
@@ -6,11 +6,11 @@ or check that they have the same packages (for the CI)
 Usage:
 
     Generate `requirements-dev.txt`
-    $ ./conda_to_pip
+    $ python scripts/generate_pip_deps_from_conda.py
 
     Compare and fail (exit status != 0) if `requirements-dev.txt` has not been
     generated with this script:
-    $ ./conda_to_pip --compare
+    $ python scripts/generate_pip_deps_from_conda.py --compare
 """
 import argparse
 import os
@@ -19,7 +19,7 @@ import sys
 
 import yaml
 
-EXCLUDE = {"python"}
+EXCLUDE = {"python", "c-compiler", "cxx-compiler"}
 RENAME = {"pytables": "tables", "pyqt": "pyqt5", "dask-core": "dask"}
 
 
@@ -47,6 +47,9 @@ def conda_package_to_pip(package):
             return "".join((RENAME[pkg], compare, version))
 
         break
+
+    if package in EXCLUDE:
+        return
 
     if package in RENAME:
         return RENAME[package]
@@ -87,9 +90,14 @@ def main(conda_fname, pip_fname, compare=False):
         elif isinstance(dep, dict) and len(dep) == 1 and "pip" in dep:
             pip_deps += dep["pip"]
         else:
-            raise ValueError("Unexpected dependency {}".format(dep))
+            raise ValueError(f"Unexpected dependency {dep}")
 
-    pip_content = "\n".join(pip_deps)
+    fname = os.path.split(conda_fname)[1]
+    header = (
+        f"# This file is auto-generated from {fname}, do not modify.\n"
+        "# See that file for comments about the need/usage of each dependency.\n\n"
+    )
+    pip_content = header + "\n".join(pip_deps) + "\n"
 
     if compare:
         with open(pip_fname) as pip_fd:
@@ -122,13 +130,12 @@ if __name__ == "__main__":
     )
     if res:
         msg = (
-            "`requirements-dev.txt` has to be generated with `{}` after "
-            "`environment.yml` is modified.\n".format(sys.argv[0])
+            f"`requirements-dev.txt` has to be generated with `{sys.argv[0]}` after "
+            "`environment.yml` is modified.\n"
         )
         if args.azure:
             msg = (
-                "##vso[task.logissue type=error;"
-                "sourcepath=requirements-dev.txt]{}".format(msg)
+                f"##vso[task.logissue type=error;sourcepath=requirements-dev.txt]{msg}"
             )
         sys.stderr.write(msg)
     sys.exit(res)

@@ -47,6 +47,7 @@ from pandas.core.window.rolling import (
     BaseWindow,
     BaseWindowGroupby,
 )
+from pandas.core.window.aggregators import EWMean
 
 
 def get_center_of_mass(
@@ -306,6 +307,8 @@ class ExponentialMovingWindow(BaseWindow):
                 self.halflife,  # type: ignore[arg-type]
                 self.alpha,
             )
+        self._mean = EWMean(self._com, self.adjust, self.ignore_na)
+        self._mean_result = type(self._selected_obj)()
 
     def _get_window_indexer(self) -> BaseIndexer:
         """
@@ -361,17 +364,33 @@ class ExponentialMovingWindow(BaseWindow):
         aggregation_description="(exponential weighted moment) mean",
         agg_method="mean",
     )
-    def mean(self, *args, **kwargs):
+    def mean(self, *args, update=None, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
-        window_func = window_aggregations.ewma
-        window_func = partial(
-            window_func,
-            com=self._com,
-            adjust=self.adjust,
-            ignore_na=self.ignore_na,
-            deltas=self._deltas,
-        )
-        return self._apply(window_func)
+        if update is not None and self._mean_result.empty:
+            raise ValueError("Must call mean() first before passing `update`")
+        if update is not None:
+            obj = update
+            new_result = [self._mean_result]
+        elif self._mean_result.empty:
+            obj = self.obj
+            new_result = []
+        else:
+            return self._mean_result
+        for i in range(len(obj)):
+            self._mean.step(obj.iloc[i])
+            new_result.append(self._mean.finalize())
+            from pandas.core.reshape.concat import concat
+            self._mean_result = concat(new_result, ignore_index=True)
+        return self._mean_result
+        # window_func = window_aggregations.ewma
+        # window_func = partial(
+        #     window_func,
+        #     com=self._com,
+        #     adjust=self.adjust,
+        #     ignore_na=self.ignore_na,
+        #     deltas=self._deltas,
+        # )
+        # return self._apply(window_func)
 
     @doc(
         template_header,

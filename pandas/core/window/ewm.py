@@ -43,7 +43,7 @@ from pandas.core.window.rolling import (
     BaseWindow,
     BaseWindowGroupby,
 )
-from pandas.core.window.aggregators import EWMean
+from pandas.core.window.aggregators import EWMeanState, generate_numba_ewma_func
 
 
 def get_center_of_mass(
@@ -327,8 +327,15 @@ class ExponentialMovingWindow(BaseWindow):
                 self.halflife,  # type: ignore[arg-type]
                 self.alpha,
             )
-        self._mean = EWMean(self._com, self.adjust, self.ignore_na)
-        self._mean_result = type(self._selected_obj)()
+        self._mean = EWMeanState(self._com, self.adjust, self.ignore_na)
+        self._last_mean_result = None
+
+    def reset_update(self):
+        """
+        Reset the state captured by `update` calls.
+        """
+        self._mean.reset()
+        self._last_mean_result = None
 
     def _get_window_indexer(self) -> BaseIndexer:
         """
@@ -384,33 +391,38 @@ class ExponentialMovingWindow(BaseWindow):
         aggregation_description="(exponential weighted moment) mean",
         agg_method="mean",
     )
-    def mean(self, *args, update=None, **kwargs):
+    def mean(self, *args, update=None, update_deltas=None, engine=None, engine_kwargs=None, **kwargs):
         nv.validate_window_func("mean", args, kwargs)
-        if update is not None and self._mean_result.empty:
-            raise ValueError("Must call mean() first before passing `update`")
-        if update is not None:
-            obj = update
-            new_result = [self._mean_result]
-        elif self._mean_result.empty:
-            obj = self.obj
-            new_result = []
+        if maybe_use_numba(engine):
+            if update is not None:
+                if self._last_mean_result is None:
+                    raise ValueError("Must call mean() first before passing `update`")
+                obj = np.concatenate(([self._last_mean_result], update.to_numpy()))
+                result_from = 1
+            else:
+                obj = self._selected_obj.to_numpy()
+                result_from = 0
+            if update_deltas is None:
+                update_deltas = np.ones(max(len(obj) - 1, 0), dtype=np.float64)
+            ewma_func = generate_numba_ewma_func(engine_kwargs)
+            result = self._mean.run_ewm(obj, update_deltas, self.min_periods, ewma_func)
+            self._last_mean_result = result[-1]
+            result = self._selected_obj._constructor(result)
+            return result.iloc[result_from:]
+        elif engine in ("cython", None):
+            if engine_kwargs is not None:
+                raise ValueError("cython engine does not accept engine_kwargs")
+            window_func = window_aggregations.ewma
+            window_func = partial(
+                window_func,
+                com=self._com,
+                adjust=self.adjust,
+                ignore_na=self.ignore_na,
+                deltas=self._deltas,
+            )
+            return self._apply(window_func)
         else:
-            return self._mean_result
-        for i in range(len(obj)):
-            self._mean.step(obj.iloc[i])
-            new_result.append(self._mean.finalize())
-            from pandas.core.reshape.concat import concat
-            self._mean_result = concat(new_result, ignore_index=True)
-        return self._mean_result
-        # window_func = window_aggregations.ewma
-        # window_func = partial(
-        #     window_func,
-        #     com=self._com,
-        #     adjust=self.adjust,
-        #     ignore_na=self.ignore_na,
-        #     deltas=self._deltas,
-        # )
-        # return self._apply(window_func)
+            raise ValueError("engine must be either 'numba' or 'cython'")
 
     @doc(
         template_header,

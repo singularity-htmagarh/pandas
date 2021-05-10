@@ -337,10 +337,6 @@ class ExponentialMovingWindow(BaseWindow):
         """
         return ExponentialMovingWindowIndexer()
 
-    def online(self):
-        import_optional_dependency("numba")
-        return OnlineExponentialMovingWindow(self.obj, **{attr: getattr(self, attr) for attr in self._attributes})
-
     @doc(
         _shared_docs["aggregate"],
         see_also=dedent(

@@ -140,6 +140,7 @@ from pandas.core.sorting import get_indexer_indexer
 from pandas.core.window import (
     Expanding,
     ExponentialMovingWindow,
+    OnlineExponentialMovingWindow,
     Rolling,
     Window,
 )
@@ -11094,7 +11095,6 @@ class NDFrame(PandasObject, indexing.IndexingMixin):
             self, min_periods=min_periods, center=center, axis=axis, method=method
         )
 
-    @final
     @doc(ExponentialMovingWindow)
     def ewm(
         self,
@@ -11107,10 +11107,25 @@ class NDFrame(PandasObject, indexing.IndexingMixin):
         ignore_na: bool_t = False,
         axis: Axis = 0,
         times: str | np.ndarray | FrameOrSeries | None = None,
-    ) -> ExponentialMovingWindow:
+        online: bool = False
+    ):
         axis = self._get_axis_number(axis)
         # error: Value of type variable "FrameOrSeries" of "ExponentialMovingWindow"
         # cannot be "object"
+        if online:
+            import_optional_dependency("numba")
+            return OnlineExponentialMovingWindow(
+                self,
+                com=com,
+                span=span,
+                halflife=halflife,
+                alpha=alpha,
+                min_periods=min_periods,
+                adjust=adjust,
+                ignore_na=ignore_na,
+                axis=axis,
+                times=times,
+            )
         return ExponentialMovingWindow(  # type: ignore[type-var]
             self,
             com=com,

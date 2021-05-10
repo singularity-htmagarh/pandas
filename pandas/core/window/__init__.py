@@ -1,6 +1,7 @@
 from pandas.core.window.ewm import (  # noqa:F401
     ExponentialMovingWindow,
     ExponentialMovingWindowGroupby,
+    OnlineExponentialMovingWindow,
 )
 from pandas.core.window.expanding import (  # noqa:F401
     Expanding,

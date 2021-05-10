@@ -7,6 +7,7 @@ import warnings
 
 import numpy as np
 
+from pandas.compat._optional import import_optional_dependency
 from pandas._libs.tslibs import Timedelta
 import pandas._libs.window.aggregations as window_aggregations
 from pandas._typing import (
@@ -23,6 +24,7 @@ from pandas.core.dtypes.missing import isna
 
 import pandas.core.common as common  # noqa: PDF018
 from pandas.core.util.numba_ import maybe_use_numba
+from pandas.core.window.aggregators import EWMeanState, generate_online_numba_ewma_func
 from pandas.core.window.common import zsqrt
 from pandas.core.window.doc import (
     _shared_docs,
@@ -335,6 +337,10 @@ class ExponentialMovingWindow(BaseWindow):
         """
         return ExponentialMovingWindowIndexer()
 
+    def online(self):
+        import_optional_dependency("numba")
+        return OnlineExponentialMovingWindow(self.obj, **{attr: getattr(self, attr) for attr in self._attributes})
+
     @doc(
         _shared_docs["aggregate"],
         see_also=dedent(
@@ -619,6 +625,64 @@ class ExponentialMovingWindow(BaseWindow):
             return Series(result, index=x.index, name=x.name)
 
         return self._apply_pairwise(self._selected_obj, other, pairwise, cov_func)
+
+
+class OnlineExponentialMovingWindow(ExponentialMovingWindow):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._mean = EWMeanState(self._com, self.adjust, self.ignore_na)
+        self._last_mean_result = None
+
+    def reset(self):
+        """
+        Reset the state captured by `update` calls.
+        """
+        self._mean.reset()
+        self._last_mean_result = None
+
+    def aggregate(self, func, *args, **kwargs):
+        return NotImplementedError
+
+    def std(self, bias: bool = False, *args, **kwargs):
+        return NotImplementedError
+
+    def corr(
+        self,
+        other: FrameOrSeriesUnion | None = None,
+        pairwise: bool | None = None,
+        **kwargs,
+    ):
+        return NotImplementedError
+
+    def cov(
+        self,
+        other: FrameOrSeriesUnion | None = None,
+        pairwise: bool | None = None,
+        bias: bool = False,
+        **kwargs,
+    ):
+        return NotImplementedError
+
+    def var(self, bias: bool = False, *args, **kwargs):
+        return NotImplementedError
+
+    def mean(self, engine=None, engine_kwargs=None, update=None, update_deltas=None):
+        if update is not None:
+            if self._last_mean_result is None:
+                raise ValueError("Must call mean() first before passing `update`")
+            obj = np.concatenate(([self._last_mean_result], update.to_numpy()))
+            result_from = 1
+        else:
+            obj = self._selected_obj.to_numpy()
+            result_from = 0
+        if update_deltas is None:
+            update_deltas = np.ones(max(len(obj) - 1, 0), dtype=np.float64)
+        ewma_func = generate_online_numba_ewma_func(engine_kwargs)
+        result = self._mean.run_ewm(obj, update_deltas, self.min_periods, ewma_func)
+        self._last_mean_result = result[-1]
+        result = self._selected_obj._constructor(result)
+        return result.iloc[result_from:]
 
 
 class ExponentialMovingWindowGroupby(BaseWindowGroupby, ExponentialMovingWindow):
